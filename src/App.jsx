@@ -21,12 +21,32 @@ const INTERVALS = [
   { id: 'P8',  name: 'Octava',            ratio: '2:1',   n: 2,  m: 1,  etCents: 1200, justCents: 1200.000 },
 ];
 
+// Waveforms basadas en Scale Workshop (sevish.com/scaleworkshop), implementadas
+// con createPeriodicWave: cada array es una lista de amplitudes de armónicos.
+// El índice 0 es siempre 0 (componente DC); el índice 1 es el fundamental;
+// los siguientes son los armónicos sucesivos. Se usan como coeficientes seno (imag).
+const WAVEFORMS = {
+  sine:         [0, 1],
+  semisine:     [0, 0.50, 0.21, 0, 0.042, 0, 0.018, 0, 0.010, 0, 0.006, 0, 0.004],
+  triangle:     [0, 1, 0, -1/9, 0, 1/25, 0, -1/49, 0, 1/81, 0, -1/121, 0, 1/169],
+  square:       [0, 1, 0, 1/3, 0, 1/5, 0, 1/7, 0, 1/9, 0, 1/11, 0, 1/13],
+  sawtooth:     [0, 1, 1/2, 1/3, 1/4, 1/5, 1/6, 1/7, 1/8, 1/9, 1/10, 1/11, 1/12, 1/13],
+  octaver:      [0, 1, 0.55, 0, 0.38, 0, 0, 0, 0.24, 0, 0, 0, 0, 0, 0, 0, 0.15],
+  brightness:   [0, 1, 0.78, 0.68, 0.62, 0.56, 0.50, 0.46, 0.42, 0.38, 0.34, 0.30, 0.26, 0.23, 0.20, 0.18, 0.16],
+  harmonicBell: [0, 1, 0.40, 0.65, 0.30, 0.55, 0.25, 0.45, 0.20, 0.35, 0.15, 0.27, 0.10, 0.22, 0.08, 0.18, 0.06],
+  warm:         [0, 1, 0.45, 0.18, 0.07, 0.025, 0.009, 0.003, 0.001],
+};
+
 const TIMBRES = [
-  { id: 'sawtooth', name: 'Sierra',     desc: 'Todos los armónicos. Batimientos nítidos en cualquier intervalo.',  voiceGain: 0.16 },
-  { id: 'square',   name: 'Cuadrada',   desc: 'Solo armónicos impares (clarinete). Algunos intervalos no baten.',  voiceGain: 0.10 },
-  { id: 'triangle', name: 'Triangular', desc: 'Impares con caída rápida (flauta). Batimientos sutiles.',           voiceGain: 0.20 },
-  { id: 'sine',     name: 'Senoidal',   desc: 'Tono puro sin armónicos. La afinación se vuelve invisible al oído.', voiceGain: 0.22 },
-  { id: 'organ',    name: 'Órgano',     desc: 'Aditiva con armónicos 1°-8°. Sustentada, rica.',                     voiceGain: 0.14 },
+  { id: 'sine',         name: 'Senoidal',         desc: 'Tono puro sin armónicos. La afinación se vuelve invisible al oído.',                  voiceGain: 0.24 },
+  { id: 'semisine',     name: 'Semisenoidal',     desc: 'Senoidal con armónicos pares suaves. Default de Scale Workshop para auditar afinaciones sin saturar.', voiceGain: 0.22 },
+  { id: 'triangle',     name: 'Triangular',       desc: 'Impares con caída rápida (flauta). Batimientos sutiles.',                              voiceGain: 0.20 },
+  { id: 'square',       name: 'Cuadrada',         desc: 'Solo armónicos impares (clarinete). Algunos intervalos no baten en este timbre.',     voiceGain: 0.11 },
+  { id: 'sawtooth',     name: 'Sierra',           desc: 'Todos los armónicos con caída 1/n. Batimientos nítidos en cualquier intervalo.',      voiceGain: 0.15 },
+  { id: 'octaver',      name: 'Octavador',        desc: 'Énfasis exclusivo en octavas (armónicos 1, 2, 4, 8, 16). Sonido cristalino y abierto.', voiceGain: 0.17 },
+  { id: 'brightness',   name: 'Brillante',        desc: 'Espectro pleno con armónicos agudos sostenidos. Intenso y luminoso.',                  voiceGain: 0.09 },
+  { id: 'harmonicBell', name: 'Campana armónica', desc: 'Patrón armónico tipo campana, alternando pares e impares. Color metálico y cantante.', voiceGain: 0.11 },
+  { id: 'warm',         name: 'Cálida',           desc: 'Pocos armónicos con caída suave (similar a flauta dulce). Cómoda para escucha prolongada.', voiceGain: 0.21 },
 ];
 
 const WHITE_KEYS = [
@@ -97,7 +117,7 @@ export default function TallerBatimientos() {
   const [centsOffset, setCentsOffset] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.5);
-  const [timbre, setTimbre] = useState('sawtooth');
+  const [timbre, setTimbre] = useState('semisine');
   const [voiceMode, setVoiceMode] = useState('both');
 
   const [currentAB, setCurrentAB] = useState(null);
@@ -147,8 +167,8 @@ export default function TallerBatimientos() {
     const cfg = TIMBRES.find(t => t.id === timbre);
 
     const voiceGain = ctx.createGain();
-    voiceGain.gain.value = 0; // arranca en silencio, sube con fade-in
-    voiceGain.gain.setTargetAtTime(cfg.voiceGain, ctx.currentTime, 0.025); // ~80 ms al 95%
+    voiceGain.gain.value = 0;
+    voiceGain.gain.setTargetAtTime(cfg.voiceGain, ctx.currentTime, 0.025);
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
@@ -156,49 +176,23 @@ export default function TallerBatimientos() {
     filter.Q.value = 0.5;
 
     filter.connect(voiceGain);
-    voiceGain.connect(master);                       // ruta seca al destino
-    voiceGain.connect(bandpass);                     // ruta al analizador de batimientos
-    if (convolver) voiceGain.connect(convolver);     // envío al reverb
+    voiceGain.connect(master);
+    voiceGain.connect(bandpass);
+    if (convolver) voiceGain.connect(convolver);
 
-    const oscillators = [];
+    // PeriodicWave a partir de los coeficientes de Fourier definidos en WAVEFORMS.
+    // Esta es la misma técnica que usa Scale Workshop para sus timbres con nombre.
+    const harmonics = WAVEFORMS[timbre] || WAVEFORMS.semisine;
+    const imag = new Float32Array(harmonics);
+    const real = new Float32Array(harmonics.length);
+    const wave = ctx.createPeriodicWave(real, imag, { disableNormalization: false });
 
-    if (timbre === 'organ') {
-      // Drawbars estilo Hammond B-3 (sin 16'). El 7° armónico se incluye con
-      // ganancia baja porque el Hammond no lo tiene, pero pedagógicamente lo
-      // necesitamos para escuchar batimientos en la séptima armónica 7:4.
-      const harmonics = [
-        { mult: 1, gain: 0.51 },
-        { mult: 2, gain: 0.41 },
-        { mult: 3, gain: 0.36 },
-        { mult: 4, gain: 0.28 },
-        { mult: 5, gain: 0.18 },
-        { mult: 6, gain: 0.13 },
-        { mult: 7, gain: 0.06 },
-        { mult: 8, gain: 0.09 },
-      ];
-      harmonics.forEach(h => {
-        const osc = ctx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.value = freq * h.mult;
-        const hg = ctx.createGain();
-        hg.gain.value = 0;
-        // Chiff: los armónicos altos suben más lento que los bajos.
-        // Esto da una sensación de "respiración" al inicio.
-        const tau = h.mult <= 4 ? 0.018 : 0.045;
-        hg.gain.setTargetAtTime(h.gain, ctx.currentTime, tau);
-        osc.connect(hg);
-        hg.connect(filter);
-        osc.start();
-        oscillators.push({ osc, hg, mult: h.mult });
-      });
-    } else {
-      const osc = ctx.createOscillator();
-      osc.type = timbre;
-      osc.frequency.value = freq;
-      osc.connect(filter);
-      osc.start();
-      oscillators.push({ osc, mult: 1 });
-    }
+    const osc = ctx.createOscillator();
+    osc.setPeriodicWave(wave);
+    osc.frequency.value = freq;
+    osc.connect(filter);
+    osc.start();
+    const oscillators = [{ osc, mult: 1 }];
 
     return {
       oscillators,
