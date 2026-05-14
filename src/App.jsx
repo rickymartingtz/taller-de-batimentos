@@ -51,6 +51,24 @@ const ALL_KEYS = [...WHITE_KEYS, ...BLACK_KEYS];
 const noteToSemis = (name) => ALL_KEYS.find(k => k.name === name).semis;
 const noteFreq = (name, octave) => 440 * Math.pow(2, (noteToSemis(name) + 12 * (octave - 4)) / 12);
 
+// Generador de impulse response sintético para reverb tipo sala pequeña.
+// Ruido con decaimiento exponencial y predelay corto. Stereo descorrelacionado.
+const createReverbIR = (ctx, duration = 1.2, decayShape = 2.5) => {
+  const rate = ctx.sampleRate;
+  const length = Math.floor(rate * duration);
+  const ir = ctx.createBuffer(2, length, rate);
+  const preDelay = Math.floor(rate * 0.012);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = ir.getChannelData(ch);
+    for (let i = 0; i < length; i++) {
+      if (i < preDelay) { data[i] = 0; continue; }
+      const t = (i - preDelay) / (length - preDelay);
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decayShape) * 0.55;
+    }
+  }
+  return ir;
+};
+
 const SLIDER_RANGE = 60;
 const ENVELOPE_BUFFER_LEN = 240;
 const MIN_OCT = 2;
@@ -92,6 +110,8 @@ export default function TallerBatimientos() {
   const beatAnalyserRef = useRef(null);
   const droneVoiceRef = useRef(null);
   const varVoiceRef = useRef(null);
+  const convolverRef = useRef(null);
+  const wetGainRef = useRef(null);
 
   const canvasRef = useRef(null);
   const envelopeBufRef = useRef(new Float32Array(ENVELOPE_BUFFER_LEN));
@@ -121,12 +141,14 @@ export default function TallerBatimientos() {
     const ctx = ctxRef.current;
     const master = masterGainRef.current;
     const bandpass = beatBandpassRef.current;
+    const convolver = convolverRef.current;
     if (!ctx || !master || !bandpass) return null;
 
     const cfg = TIMBRES.find(t => t.id === timbre);
 
     const voiceGain = ctx.createGain();
-    voiceGain.gain.value = cfg.voiceGain;
+    voiceGain.gain.value = 0; // arranca en silencio, sube con fade-in
+    voiceGain.gain.setTargetAtTime(cfg.voiceGain, ctx.currentTime, 0.025); // ~80 ms al 95%
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
@@ -134,28 +156,36 @@ export default function TallerBatimientos() {
     filter.Q.value = 0.5;
 
     filter.connect(voiceGain);
-    voiceGain.connect(master);
-    voiceGain.connect(bandpass);
+    voiceGain.connect(master);                       // ruta seca al destino
+    voiceGain.connect(bandpass);                     // ruta al analizador de batimientos
+    if (convolver) voiceGain.connect(convolver);     // envío al reverb
 
     const oscillators = [];
 
     if (timbre === 'organ') {
+      // Drawbars estilo Hammond B-3 (sin 16'). El 7° armónico se incluye con
+      // ganancia baja porque el Hammond no lo tiene, pero pedagógicamente lo
+      // necesitamos para escuchar batimientos en la séptima armónica 7:4.
       const harmonics = [
-        { mult: 1, gain: 0.55 },
-        { mult: 2, gain: 0.40 },
-        { mult: 3, gain: 0.32 },
-        { mult: 4, gain: 0.24 },
+        { mult: 1, gain: 0.51 },
+        { mult: 2, gain: 0.41 },
+        { mult: 3, gain: 0.36 },
+        { mult: 4, gain: 0.28 },
         { mult: 5, gain: 0.18 },
-        { mult: 6, gain: 0.14 },
-        { mult: 7, gain: 0.10 },
-        { mult: 8, gain: 0.08 },
+        { mult: 6, gain: 0.13 },
+        { mult: 7, gain: 0.06 },
+        { mult: 8, gain: 0.09 },
       ];
       harmonics.forEach(h => {
         const osc = ctx.createOscillator();
         osc.type = 'sine';
         osc.frequency.value = freq * h.mult;
         const hg = ctx.createGain();
-        hg.gain.value = h.gain;
+        hg.gain.value = 0;
+        // Chiff: los armónicos altos suben más lento que los bajos.
+        // Esto da una sensación de "respiración" al inicio.
+        const tau = h.mult <= 4 ? 0.018 : 0.045;
+        hg.gain.setTargetAtTime(h.gain, ctx.currentTime, tau);
         osc.connect(hg);
         hg.connect(filter);
         osc.start();
@@ -180,11 +210,17 @@ export default function TallerBatimientos() {
         });
       },
       stop: () => {
+        const t = ctx.currentTime;
+        voiceGain.gain.cancelScheduledValues(t);
+        voiceGain.gain.setValueAtTime(voiceGain.gain.value, t);
+        voiceGain.gain.linearRampToValueAtTime(0, t + 0.06);
         oscillators.forEach(o => {
-          try { o.osc.stop(); } catch (e) {}
+          try { o.osc.stop(t + 0.08); } catch (e) {}
         });
-        try { filter.disconnect(); } catch (e) {}
-        try { voiceGain.disconnect(); } catch (e) {}
+        setTimeout(() => {
+          try { filter.disconnect(); } catch (e) {}
+          try { voiceGain.disconnect(); } catch (e) {}
+        }, 120);
       }
     };
   }, [timbre, adaptiveLpFreq]);
@@ -211,6 +247,18 @@ export default function TallerBatimientos() {
     analyser.smoothingTimeConstant = 0;
     bandpass.connect(analyser);
     beatAnalyserRef.current = analyser;
+
+    // Reverb chain (envío paralelo, no afecta al analizador de batimientos)
+    const convolver = ctx.createConvolver();
+    convolver.buffer = createReverbIR(ctx);
+    convolverRef.current = convolver;
+
+    const wetGain = ctx.createGain();
+    wetGain.gain.value = 0.18; // mezcla ~18% wet
+    wetGainRef.current = wetGain;
+
+    convolver.connect(wetGain);
+    wetGain.connect(master);
 
     droneVoiceRef.current = createVoiceFor(droneFreq);
     varVoiceRef.current = createVoiceFor(variableFreq);
@@ -342,7 +390,7 @@ export default function TallerBatimientos() {
     if (master && ctx) {
       master.gain.cancelScheduledValues(ctx.currentTime);
       master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
-      master.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+      master.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
     }
     setIsPlaying(false);
   };
@@ -454,7 +502,9 @@ export default function TallerBatimientos() {
     const cfg = TIMBRES.find(t => t.id === timbre);
     const droneTarget = voiceMode === 'variable' ? 0 : cfg.voiceGain;
     const varTarget   = voiceMode === 'drone'    ? 0 : cfg.voiceGain;
+    d.gain.gain.cancelScheduledValues(ctx.currentTime);
     d.gain.gain.setTargetAtTime(droneTarget, ctx.currentTime, 0.03);
+    v.gain.gain.cancelScheduledValues(ctx.currentTime);
     v.gain.gain.setTargetAtTime(varTarget,   ctx.currentTime, 0.03);
   }, [voiceMode, timbre]);
 
