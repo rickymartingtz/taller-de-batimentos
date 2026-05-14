@@ -56,7 +56,6 @@ const ENVELOPE_BUFFER_LEN = 240;
 const MIN_OCT = 2;
 const MAX_OCT = 5;
 
-// Paleta Método Aural (fondo más claro, más cerca del blanco)
 const T = {
   cream:    '#fdfaf0',
   paper:    '#f4eedd',
@@ -73,7 +72,7 @@ const T = {
 // Componente
 // ────────────────────────────────────────────────────────────────────
 
-export default function AfinacionActiva() {
+export default function TallerBatimientos() {
   const [intervalIdx, setIntervalIdx] = useState(3);
   const [noteName, setNoteName] = useState('A');
   const [octave, setOctave] = useState(3);
@@ -81,6 +80,7 @@ export default function AfinacionActiva() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.5);
   const [timbre, setTimbre] = useState('sawtooth');
+  const [voiceMode, setVoiceMode] = useState('both');
 
   const [currentAB, setCurrentAB] = useState(null);
   const [autoAB, setAutoAB] = useState(false);
@@ -217,7 +217,7 @@ export default function AfinacionActiva() {
   }, [droneFreq, variableFreq, beatCenterFreq, createVoiceFor]);
 
   // ──────────────────────────────────────────────────────────────────
-  // Animation
+  // Canvas
   // ──────────────────────────────────────────────────────────────────
 
   const drawCanvas = useCallback(() => {
@@ -265,7 +265,7 @@ export default function AfinacionActiva() {
     ctx.lineTo(w, h - 2);
     ctx.stroke();
 
-    ctx.fillStyle = lockedNow ? 'rgba(122,154,62,0.15)' : 'rgba(26,61,46,0.08)';
+    ctx.fillStyle = lockedNow ? 'rgba(122,154,62,0.18)' : 'rgba(26,61,46,0.08)';
     ctx.beginPath();
     ctx.moveTo(0, h);
     for (let i = 0; i < len; i++) {
@@ -306,11 +306,9 @@ export default function AfinacionActiva() {
       const bufLen = analyser.fftSize;
       const data = new Float32Array(bufLen);
       analyser.getFloatTimeDomainData(data);
-
       let sumSq = 0;
       for (let i = 0; i < bufLen; i++) sumSq += data[i] * data[i];
       const rms = Math.sqrt(sumSq / bufLen);
-
       const buf = envelopeBufRef.current;
       buf[envelopeIdxRef.current] = rms;
       envelopeIdxRef.current = (envelopeIdxRef.current + 1) % buf.length;
@@ -361,6 +359,18 @@ export default function AfinacionActiva() {
       setIntervalIdx(i);
       if (!isPlaying) startPlayback();
     }
+  };
+
+  const handleABClick = (which) => {
+    if (currentAB === which && isPlaying) {
+      stopPlayback();
+      setCurrentAB(null);
+      return;
+    }
+    const newCents = which === 'A' ? parseFloat(justOffset.toFixed(3)) : 0;
+    setCentsOffset(newCents);
+    setCurrentAB(which);
+    if (!isPlaying) startPlayback();
   };
 
   // ──────────────────────────────────────────────────────────────────
@@ -437,6 +447,18 @@ export default function AfinacionActiva() {
   }, [timbre]);
 
   useEffect(() => {
+    const d = droneVoiceRef.current;
+    const v = varVoiceRef.current;
+    const ctx = ctxRef.current;
+    if (!d || !v || !ctx) return;
+    const cfg = TIMBRES.find(t => t.id === timbre);
+    const droneTarget = voiceMode === 'variable' ? 0 : cfg.voiceGain;
+    const varTarget   = voiceMode === 'drone'    ? 0 : cfg.voiceGain;
+    d.gain.gain.setTargetAtTime(droneTarget, ctx.currentTime, 0.03);
+    v.gain.gain.setTargetAtTime(varTarget,   ctx.currentTime, 0.03);
+  }, [voiceMode, timbre]);
+
+  useEffect(() => {
     if (currentAB === 'A') setCentsOffset(parseFloat(justOffset.toFixed(3)));
     else if (currentAB === 'B') setCentsOffset(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -465,17 +487,9 @@ export default function AfinacionActiva() {
   }, []);
 
   // ──────────────────────────────────────────────────────────────────
-  // A/B
+  // Otros handlers
   // ──────────────────────────────────────────────────────────────────
 
-  const selectA = () => {
-    setCentsOffset(parseFloat(justOffset.toFixed(3)));
-    setCurrentAB('A');
-  };
-  const selectB = () => {
-    setCentsOffset(0);
-    setCurrentAB('B');
-  };
   const handleSliderChange = (val) => {
     setCentsOffset(val);
     setCurrentAB(null);
@@ -491,6 +505,12 @@ export default function AfinacionActiva() {
 
   const justMarkerPct = ((justOffset + SLIDER_RANGE) / (SLIDER_RANGE * 2)) * 100;
   const etMarkerPct = 50;
+
+  const VOICE_LABELS = {
+    drone: 'Solo drone',
+    both: 'Ambas voces',
+    variable: 'Solo variable',
+  };
 
   return (
     <div className="min-h-screen w-full" style={{ backgroundColor: T.cream, color: T.ink }}>
@@ -545,493 +565,593 @@ export default function AfinacionActiva() {
         .key-btn:hover { filter: brightness(0.97); }
       `}</style>
 
-      <div className="max-w-4xl mx-auto px-6 py-10 md:py-14 font-body">
+      <div className="max-w-5xl mx-auto px-6 py-10 md:py-14 font-body">
 
-        {/* Cabecera */}
-        <header className="mb-10 md:mb-14">
-          <div className="flex items-baseline justify-between flex-wrap gap-2">
-            <div>
-              <p className="text-[10px] tracking-[0.3em] uppercase mb-1" style={{ color: T.muted }}>
-                Método Aural
-              </p>
-              <h1 className="font-display text-4xl md:text-5xl leading-none italic" style={{ color: T.ink }}>
-                Afinación activa
-              </h1>
-            </div>
-            <p className="text-xs tracking-wide" style={{ color: T.muted }}>
-              Taller de batimientos · entonación justa
-            </p>
-          </div>
+        {/* ─────────── Cabecera ─────────── */}
+        <header className="mb-10 md:mb-12">
+          <p className="text-[10px] tracking-[0.3em] uppercase mb-2" style={{ color: T.muted }}>
+            Método Aural
+          </p>
+          <h1 className="font-display text-4xl md:text-5xl leading-none italic" style={{ color: T.ink }}>
+            Taller de batimientos
+          </h1>
+          <p className="text-base md:text-lg mt-3 italic" style={{ color: T.inkSoft }}>
+            Entonación justa y temperamento igual
+          </p>
           <div className="h-px mt-6" style={{ backgroundColor: T.rule }} />
         </header>
 
-        {/* Intervalos */}
-        <section className="mb-10">
-          <div className="flex items-baseline justify-between mb-3">
-            <p className="text-[10px] tracking-[0.25em] uppercase" style={{ color: T.muted }}>
-              Intervalo
-            </p>
-            <p className="text-[10px] italic" style={{ color: T.muted }}>
-              clic para reproducir · clic en el activo para detener
-            </p>
+        {/* ─────────── Intro pedagógica ─────────── */}
+        <section className="mb-12">
+          <p className="text-[10px] tracking-[0.25em] uppercase mb-4" style={{ color: T.muted }}>
+            Sobre las afinaciones
+          </p>
+          <p className="text-base leading-relaxed mb-6" style={{ color: T.inkSoft }}>
+            Existen decenas de sistemas para decidir qué tan separadas se afinan las notas entre sí.
+            Cada uno resuelve un problema distinto y todos son respuestas válidas a preguntas distintas:
+            no hay una afinación &laquo;correcta&raquo;. Este taller trabaja con los dos sistemas que
+            polarizan toda la conversación.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.limeDeep}`, borderRadius: '1px' }}>
+              <p className="font-display italic text-xl mb-2">Entonación justa</p>
+              <p className="text-sm leading-relaxed mb-3" style={{ color: T.inkSoft }}>
+                Afina cada intervalo según razones simples entre números enteros (3:2, 5:4, 4:3), las mismas
+                que aparecen en la serie armónica natural.
+              </p>
+              <p className="text-xs italic" style={{ color: T.muted }}>
+                Cuartetos de cuerdas · coros a cappella · ensembles sin teclado. Suena luminosa, pero impide
+                modular libremente entre tonalidades.
+              </p>
+            </div>
+
+            <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '1px' }}>
+              <p className="font-display italic text-xl mb-2">Temperamento igual</p>
+              <p className="text-sm leading-relaxed mb-3" style={{ color: T.inkSoft }}>
+                Divide la octava en doce partes exactamente iguales, de 100 cents cada una. Ningún intervalo
+                es acústicamente puro, pero se puede tocar en cualquier tonalidad sin reafinar.
+              </p>
+              <p className="text-xs italic" style={{ color: T.muted }}>
+                Piano moderno · MIDI · software musical. La afinación de la vida cotidiana en la era post-Bach.
+              </p>
+            </div>
+
+            <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.muted}`, borderRadius: '1px' }}>
+              <p className="font-display italic text-xl mb-2">Otros sistemas</p>
+              <p className="text-sm leading-relaxed mb-3" style={{ color: T.inkSoft }}>
+                Pitagórico (solo quintas 3:2 puras), mesotónico (terceras 5:4 puras), temperamentos históricos
+                (Werckmeister, Vallotti), microtonalismos contemporáneos (19-TET, 31-TET, espectralismo).
+              </p>
+              <p className="text-xs italic" style={{ color: T.muted }}>
+                Cada uno resuelve compromisos distintos. Todos pueden entenderse como variaciones entre los
+                dos polos.
+              </p>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {INTERVALS.map((iv, i) => {
-              const active = i === intervalIdx;
-              return (
-                <button
-                  key={iv.id}
-                  onClick={() => handleIntervalClick(i)}
-                  className="px-3 py-2 text-sm transition-all"
-                  style={{
-                    backgroundColor: active ? T.ink : 'transparent',
-                    color: active ? T.cream : T.ink,
-                    border: `1px solid ${active ? T.ink : T.rule}`,
-                    borderRadius: '2px',
-                  }}
-                >
-                  <span className="font-display italic text-base mr-2">{iv.name}</span>
-                  <span className="text-xs opacity-70 num-tabular">{iv.ratio}</span>
-                  {active && isPlaying && <span className="play-dot" />}
-                </button>
-              );
-            })}
-          </div>
+
+          <p className="text-base leading-relaxed" style={{ color: T.inkSoft }}>
+            La tensión fundamental es entre <em>pureza acústica</em> y <em>flexibilidad armónica</em>.
+            Quien la escucha en su cuerpo entiende todos los demás sistemas como puntos sobre un mismo
+            espectro. El objetivo de este taller no es teórico sino físico: que escuches el contraste
+            con tu propio oído mediante los <strong>batimientos</strong> (la pulsación rítmica que
+            aparece cuando dos sonidos están ligeramente desafinados, y que desaparece cuando el
+            intervalo se ancla).
+          </p>
         </section>
 
-        {/* Drone */}
-        <section className="mb-8">
-          <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4">
-            <p className="text-[10px] tracking-[0.25em] uppercase" style={{ color: T.muted }}>
-              Drone
+        {/* ─────────── Área principal en dos columnas ─────────── */}
+        <section className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-8 items-start">
+
+          {/* ============ COLUMNA IZQUIERDA: intervalos ============ */}
+          <div className="lg:sticky lg:top-6">
+            <p className="text-[10px] tracking-[0.25em] uppercase mb-3" style={{ color: T.muted }}>
+              Intervalo
             </p>
-            <p className="font-display italic text-xl">
-              {noteName.replace('#', '♯')}<sub className="text-sm">{octave}</sub>
-              <span className="text-sm num-tabular ml-3" style={{ color: T.muted }}>
-                {droneFreq.toFixed(2)} Hz
-              </span>
-            </p>
+            <div className="flex flex-col gap-1.5">
+              {INTERVALS.map((iv, i) => {
+                const active = i === intervalIdx;
+                return (
+                  <button
+                    key={iv.id}
+                    onClick={() => handleIntervalClick(i)}
+                    className="block text-left px-3 py-2 ab-fade"
+                    style={{
+                      backgroundColor: active ? T.ink : 'transparent',
+                      color: active ? T.cream : T.ink,
+                      border: `1px solid ${active ? T.ink : T.rule}`,
+                      borderRadius: '2px',
+                    }}
+                  >
+                    <div className="font-display italic text-sm flex items-center">
+                      {iv.name}
+                      {active && isPlaying && <span className="play-dot" />}
+                    </div>
+                    <div className="text-[10px] opacity-70 num-tabular mt-0.5">
+                      {iv.ratio}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="flex items-stretch gap-4 flex-wrap">
-            <div className="relative flex-1" style={{ minWidth: '280px', maxWidth: '440px', height: '110px' }}>
-              <div className="flex absolute inset-0">
-                {WHITE_KEYS.map((k, i) => {
-                  const active = noteName === k.name;
+          {/* ============ COLUMNA DERECHA: todo lo demás ============ */}
+          <div className="flex flex-col gap-8 min-w-0">
+
+            {/* ── Drone ── */}
+            <div>
+              <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4">
+                <p className="text-[10px] tracking-[0.25em] uppercase" style={{ color: T.muted }}>
+                  Drone
+                </p>
+                <p className="font-display italic text-xl">
+                  {noteName.replace('#', '♯')}<sub className="text-sm">{octave}</sub>
+                  <span className="text-sm num-tabular ml-3" style={{ color: T.muted }}>
+                    {droneFreq.toFixed(2)} Hz
+                  </span>
+                </p>
+              </div>
+
+              <div className="flex items-stretch gap-4 flex-wrap">
+                <div className="relative flex-1" style={{ minWidth: '280px', maxWidth: '460px', height: '110px' }}>
+                  <div className="flex absolute inset-0">
+                    {WHITE_KEYS.map((k, i) => {
+                      const active = noteName === k.name;
+                      return (
+                        <button
+                          key={k.name}
+                          onClick={() => setNoteName(k.name)}
+                          className="key-btn flex-1 relative ab-fade"
+                          style={{
+                            backgroundColor: active ? T.lime : T.cream,
+                            border: `1px solid ${T.ink}`,
+                            borderRight: i === WHITE_KEYS.length - 1 ? `1px solid ${T.ink}` : 'none',
+                            borderRadius: 0,
+                          }}
+                        >
+                          <span
+                            className="absolute bottom-2 left-1/2 font-display text-base"
+                            style={{ transform: 'translateX(-50%)', color: T.ink, fontWeight: active ? 600 : 400 }}
+                          >
+                            {k.display}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {BLACK_KEYS.map(k => {
+                    const active = noteName === k.name;
+                    const blackW = 9;
+                    return (
+                      <button
+                        key={k.name}
+                        onClick={() => setNoteName(k.name)}
+                        className="key-btn absolute ab-fade"
+                        style={{
+                          left: `calc(${k.leftPct}% - ${blackW / 2}%)`,
+                          width: `${blackW}%`,
+                          top: 0,
+                          height: '62%',
+                          backgroundColor: active ? T.limeDeep : T.ink,
+                          border: `1px solid ${T.ink}`,
+                          zIndex: 10,
+                          borderRadius: '0 0 2px 2px',
+                        }}
+                      >
+                        <span
+                          className="absolute bottom-1 left-1/2 text-[9px]"
+                          style={{
+                            transform: 'translateX(-50%)',
+                            color: active ? T.ink : T.cream,
+                            fontWeight: 500,
+                          }}
+                        >
+                          {k.display}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-col items-center justify-center" style={{ minWidth: '90px' }}>
+                  <p className="text-[10px] tracking-[0.25em] uppercase mb-2" style={{ color: T.muted }}>
+                    Octava
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setOctave(o => Math.max(MIN_OCT, o - 1))}
+                      disabled={octave <= MIN_OCT}
+                      className="w-8 h-8 text-lg ab-fade"
+                      style={{
+                        border: `1px solid ${T.rule}`,
+                        color: octave <= MIN_OCT ? T.rule : T.ink,
+                        backgroundColor: 'transparent',
+                      }}
+                    >−</button>
+                    <span className="font-display text-3xl num-tabular w-8 text-center">{octave}</span>
+                    <button
+                      onClick={() => setOctave(o => Math.min(MAX_OCT, o + 1))}
+                      disabled={octave >= MAX_OCT}
+                      className="w-8 h-8 text-lg ab-fade"
+                      style={{
+                        border: `1px solid ${T.rule}`,
+                        color: octave >= MAX_OCT ? T.rule : T.ink,
+                        backgroundColor: 'transparent',
+                      }}
+                    >+</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Timbre ── */}
+            <div>
+              <p className="text-[10px] tracking-[0.25em] uppercase mb-3" style={{ color: T.muted }}>
+                Timbre del sintetizador
+              </p>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {TIMBRES.map(t => {
+                  const active = t.id === timbre;
                   return (
                     <button
-                      key={k.name}
-                      onClick={() => setNoteName(k.name)}
-                      className="key-btn flex-1 relative ab-fade"
+                      key={t.id}
+                      onClick={() => setTimbre(t.id)}
+                      className="px-4 py-2 text-sm ab-fade"
                       style={{
-                        backgroundColor: active ? T.lime : T.cream,
-                        border: `1px solid ${T.ink}`,
-                        borderRight: i === WHITE_KEYS.length - 1 ? `1px solid ${T.ink}` : 'none',
-                        borderRadius: 0,
+                        backgroundColor: active ? T.ink : 'transparent',
+                        color: active ? T.cream : T.ink,
+                        border: `1px solid ${active ? T.ink : T.rule}`,
+                        borderRadius: '2px',
                       }}
                     >
-                      <span
-                        className="absolute bottom-2 left-1/2 font-display text-base"
-                        style={{ transform: 'translateX(-50%)', color: T.ink, fontWeight: active ? 600 : 400 }}
-                      >
-                        {k.display}
-                      </span>
+                      <span className="font-display italic text-base">{t.name}</span>
                     </button>
                   );
                 })}
               </div>
-              {BLACK_KEYS.map(k => {
-                const active = noteName === k.name;
-                const blackW = 9;
-                return (
-                  <button
-                    key={k.name}
-                    onClick={() => setNoteName(k.name)}
-                    className="key-btn absolute ab-fade"
-                    style={{
-                      left: `calc(${k.leftPct}% - ${blackW / 2}%)`,
-                      width: `${blackW}%`,
-                      top: 0,
-                      height: '62%',
-                      backgroundColor: active ? T.limeDeep : T.ink,
-                      border: `1px solid ${T.ink}`,
-                      zIndex: 10,
-                      borderRadius: '0 0 2px 2px',
-                    }}
-                  >
-                    <span
-                      className="absolute bottom-1 left-1/2 text-[9px]"
+              <p className="text-xs italic" style={{ color: T.muted }}>
+                {currentTimbre.desc}
+              </p>
+            </div>
+
+            {/* ── Aislar voces ── */}
+            <div>
+              <p className="text-[10px] tracking-[0.25em] uppercase mb-3" style={{ color: T.muted }}>
+                Aislar voces
+              </p>
+              <div className="flex gap-2 flex-wrap mb-2">
+                {['drone', 'both', 'variable'].map(mode => {
+                  const active = voiceMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => setVoiceMode(mode)}
+                      className="px-4 py-2 text-sm ab-fade"
                       style={{
-                        transform: 'translateX(-50%)',
-                        color: active ? T.ink : T.cream,
-                        fontWeight: 500,
+                        backgroundColor: active ? T.ink : 'transparent',
+                        color: active ? T.cream : T.ink,
+                        border: `1px solid ${active ? T.ink : T.rule}`,
+                        borderRadius: '2px',
                       }}
                     >
-                      {k.display}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="flex flex-col items-center justify-center" style={{ minWidth: '90px' }}>
-              <p className="text-[10px] tracking-[0.25em] uppercase mb-2" style={{ color: T.muted }}>
-                Octava
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setOctave(o => Math.max(MIN_OCT, o - 1))}
-                  disabled={octave <= MIN_OCT}
-                  className="w-8 h-8 text-lg"
-                  style={{
-                    border: `1px solid ${T.rule}`,
-                    color: octave <= MIN_OCT ? T.rule : T.ink,
-                    backgroundColor: 'transparent',
-                  }}
-                >−</button>
-                <span className="font-display text-3xl num-tabular w-8 text-center">{octave}</span>
-                <button
-                  onClick={() => setOctave(o => Math.min(MAX_OCT, o + 1))}
-                  disabled={octave >= MAX_OCT}
-                  className="w-8 h-8 text-lg"
-                  style={{
-                    border: `1px solid ${T.rule}`,
-                    color: octave >= MAX_OCT ? T.rule : T.ink,
-                    backgroundColor: 'transparent',
-                  }}
-                >+</button>
+                      <span className="font-display italic text-base">{VOICE_LABELS[mode]}</span>
+                    </button>
+                  );
+                })}
               </div>
+              <p className="text-xs italic" style={{ color: T.muted }}>
+                Útil para diagnosticar el timbre de cada voz por separado, o para memorizar la altura
+                del drone antes de afinar el intervalo. Si aíslas una voz, los batimientos desaparecen
+                del visualizador; necesitan las dos para existir.
+              </p>
             </div>
-          </div>
-        </section>
 
-        {/* Timbre */}
-        <section className="mb-10">
-          <p className="text-[10px] tracking-[0.25em] uppercase mb-3" style={{ color: T.muted }}>
-            Timbre del sintetizador
-          </p>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {TIMBRES.map(t => {
-              const active = t.id === timbre;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setTimbre(t.id)}
-                  className="px-4 py-2 text-sm ab-fade"
-                  style={{
-                    backgroundColor: active ? T.ink : 'transparent',
-                    color: active ? T.cream : T.ink,
-                    border: `1px solid ${active ? T.ink : T.rule}`,
-                    borderRadius: '2px',
-                  }}
-                >
-                  <span className="font-display italic text-base">{t.name}</span>
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-xs italic" style={{ color: T.muted }}>
-            {currentTimbre.desc}
-          </p>
-        </section>
-
-        {/* Visualizador */}
-        <section className="mb-4">
-          <div
-            className="relative ab-fade"
-            style={{
-              border: `1px solid ${T.rule}`,
-              borderRadius: '2px',
-              overflow: 'hidden',
-              boxShadow: isLocked && isPlaying ? `inset 0 0 0 2px ${T.lime}` : 'none',
-            }}
-          >
-            <canvas ref={canvasRef} style={{ width: '100%', height: '180px', display: 'block' }} />
-            {isLocked && isPlaying && (
+            {/* ── Visualizador ── */}
+            <div>
               <div
-                className="absolute top-3 right-3 pulse-lock px-2 py-1 text-[10px] tracking-[0.2em] uppercase"
-                style={{ backgroundColor: T.limeDeep, color: T.cream, borderRadius: '2px' }}
-              >
-                Encaje puro
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Comparación A/B */}
-        <section
-          className="mb-8 p-4"
-          style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '1px' }}
-        >
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <button
-              onClick={selectA}
-              className="py-3 px-4 ab-fade text-left"
-              style={{
-                backgroundColor: currentAB === 'A' ? T.limeDeep : T.cream,
-                color: currentAB === 'A' ? T.cream : T.ink,
-                border: `1px solid ${currentAB === 'A' ? T.limeDeep : T.rule}`,
-                borderRadius: '2px',
-                boxShadow: currentAB === 'A' ? '0 4px 12px rgba(122,154,62,0.25)' : 'none',
-              }}
-            >
-              <p className="text-[10px] tracking-[0.3em] uppercase opacity-70">
-                A {currentAB === 'A' && '◉'}
-              </p>
-              <p className="font-display text-xl italic">Justa</p>
-              <p className="text-[10px] num-tabular opacity-80">
-                {justOffset >= 0 ? '+' : ''}{justOffset.toFixed(2)} cents
-              </p>
-            </button>
-            <button
-              onClick={selectB}
-              className="py-3 px-4 ab-fade text-left"
-              style={{
-                backgroundColor: currentAB === 'B' ? T.ink : T.cream,
-                color: currentAB === 'B' ? T.cream : T.ink,
-                border: `1px solid ${currentAB === 'B' ? T.ink : T.rule}`,
-                borderRadius: '2px',
-                boxShadow: currentAB === 'B' ? '0 4px 12px rgba(26,61,46,0.2)' : 'none',
-              }}
-            >
-              <p className="text-[10px] tracking-[0.3em] uppercase opacity-70">
-                B {currentAB === 'B' && '◉'}
-              </p>
-              <p className="font-display text-xl italic">Temperado</p>
-              <p className="text-[10px] num-tabular opacity-80">0.00 cents</p>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap text-xs">
-            <button
-              onClick={() => handleAutoToggle(!autoAB)}
-              className="flex items-center gap-2 cursor-pointer select-none"
-              style={{ background: 'none', border: 'none', padding: 0, color: T.ink }}
-            >
-              <span
-                className="w-4 h-4 inline-flex items-center justify-center ab-fade"
+                className="relative ab-fade"
                 style={{
-                  backgroundColor: autoAB ? T.ink : 'transparent',
-                  border: `1px solid ${T.ink}`,
+                  border: `1px solid ${T.rule}`,
                   borderRadius: '2px',
+                  overflow: 'hidden',
+                  boxShadow: isLocked && isPlaying ? `inset 0 0 0 2px ${T.lime}` : 'none',
                 }}
               >
-                {autoAB && <span style={{ color: T.cream, fontSize: '10px', lineHeight: 1 }}>✓</span>}
-              </span>
-              <span>Alternar automáticamente</span>
-            </button>
+                <canvas ref={canvasRef} style={{ width: '100%', height: '180px', display: 'block' }} />
+                {isLocked && isPlaying && (
+                  <div
+                    className="absolute top-3 right-3 pulse-lock px-2 py-1 text-[10px] tracking-[0.2em] uppercase"
+                    style={{ backgroundColor: T.limeDeep, color: T.cream, borderRadius: '2px' }}
+                  >
+                    Encaje puro
+                  </div>
+                )}
+              </div>
+            </div>
 
-            <div className="flex items-center gap-1">
-              {[1000, 2000, 3000, 4000].map(ms => {
-                const active = autoIntervalMs === ms;
-                return (
-                  <button
-                    key={ms}
-                    onClick={() => setAutoIntervalMs(ms)}
-                    disabled={!autoAB}
-                    className="px-2 py-1 num-tabular ab-fade"
+            {/* ── A/B comparación ── */}
+            <div
+              className="p-4"
+              style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '1px' }}
+            >
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <button
+                  onClick={() => handleABClick('A')}
+                  className="py-3 px-4 ab-fade text-left"
+                  style={{
+                    backgroundColor: currentAB === 'A' ? T.limeDeep : T.cream,
+                    color: currentAB === 'A' ? T.cream : T.ink,
+                    border: `1px solid ${currentAB === 'A' ? T.limeDeep : T.rule}`,
+                    borderRadius: '2px',
+                    boxShadow: currentAB === 'A' ? '0 4px 12px rgba(122,154,62,0.25)' : 'none',
+                  }}
+                >
+                  <p className="text-[10px] tracking-[0.3em] uppercase opacity-70 flex items-center">
+                    A
+                    {currentAB === 'A' && isPlaying && <span className="play-dot" style={{ background: T.cream }} />}
+                  </p>
+                  <p className="font-display text-xl italic">Justa</p>
+                  <p className="text-[10px] num-tabular opacity-80">
+                    {justOffset >= 0 ? '+' : ''}{justOffset.toFixed(2)} cents
+                  </p>
+                </button>
+                <button
+                  onClick={() => handleABClick('B')}
+                  className="py-3 px-4 ab-fade text-left"
+                  style={{
+                    backgroundColor: currentAB === 'B' ? T.ink : T.cream,
+                    color: currentAB === 'B' ? T.cream : T.ink,
+                    border: `1px solid ${currentAB === 'B' ? T.ink : T.rule}`,
+                    borderRadius: '2px',
+                    boxShadow: currentAB === 'B' ? '0 4px 12px rgba(26,61,46,0.2)' : 'none',
+                  }}
+                >
+                  <p className="text-[10px] tracking-[0.3em] uppercase opacity-70 flex items-center">
+                    B
+                    {currentAB === 'B' && isPlaying && <span className="play-dot" style={{ background: T.lime }} />}
+                  </p>
+                  <p className="font-display text-xl italic">Temperado</p>
+                  <p className="text-[10px] num-tabular opacity-80">0.00 cents</p>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3 flex-wrap text-xs">
+                <button
+                  onClick={() => handleAutoToggle(!autoAB)}
+                  className="flex items-center gap-2 cursor-pointer select-none"
+                  style={{ background: 'none', border: 'none', padding: 0, color: T.ink }}
+                >
+                  <span
+                    className="w-4 h-4 inline-flex items-center justify-center ab-fade"
                     style={{
-                      color: !autoAB ? T.rule : (active ? T.cream : T.muted),
-                      backgroundColor: active && autoAB ? T.ink : 'transparent',
-                      border: `1px solid ${active && autoAB ? T.ink : T.rule}`,
+                      backgroundColor: autoAB ? T.ink : 'transparent',
+                      border: `1px solid ${T.ink}`,
                       borderRadius: '2px',
-                      cursor: autoAB ? 'pointer' : 'not-allowed',
                     }}
                   >
-                    {ms / 1000}s
-                  </button>
-                );
-              })}
-            </div>
+                    {autoAB && <span style={{ color: T.cream, fontSize: '10px', lineHeight: 1 }}>✓</span>}
+                  </span>
+                  <span>Alternar automáticamente</span>
+                </button>
 
-            {autoAB && isPlaying && (
-              <span className="italic" style={{ color: T.limeDeep }}>↻ alternando…</span>
-            )}
-            {autoAB && !isPlaying && (
-              <span className="italic" style={{ color: T.muted }}>inicia el audio</span>
-            )}
-          </div>
-        </section>
+                <div className="flex items-center gap-1">
+                  {[1000, 2000, 3000, 4000].map(ms => {
+                    const active = autoIntervalMs === ms;
+                    return (
+                      <button
+                        key={ms}
+                        onClick={() => setAutoIntervalMs(ms)}
+                        disabled={!autoAB}
+                        className="px-2 py-1 num-tabular ab-fade"
+                        style={{
+                          color: !autoAB ? T.rule : (active ? T.cream : T.muted),
+                          backgroundColor: active && autoAB ? T.ink : 'transparent',
+                          border: `1px solid ${active && autoAB ? T.ink : T.rule}`,
+                          borderRadius: '2px',
+                          cursor: autoAB ? 'pointer' : 'not-allowed',
+                        }}
+                      >
+                        {ms / 1000}s
+                      </button>
+                    );
+                  })}
+                </div>
 
-        {/* Slider — Ajuste fino */}
-        <section className="mb-10">
-          <div className="flex justify-between items-baseline mb-3">
-            <p className="text-[10px] tracking-[0.25em] uppercase" style={{ color: T.muted }}>
-              Ajuste fino · cents desde temperado igual
-            </p>
-            <p className="text-xs num-tabular" style={{ color: T.muted }}>
-              ±{SLIDER_RANGE} cents
-            </p>
-          </div>
-
-          <div className="relative pt-6 pb-8">
-            <div
-              className="absolute top-0 flex flex-col items-center"
-              style={{ left: `${justMarkerPct}%`, transform: 'translateX(-50%)' }}
-            >
-              <span
-                className="text-[10px] tracking-[0.15em] uppercase mb-0.5 px-1.5 py-0.5"
-                style={{ backgroundColor: T.limeDeep, color: T.cream, borderRadius: '1px' }}
-              >
-                Justa
-              </span>
-              <div style={{ width: '1px', height: '8px', backgroundColor: T.limeDeep }} />
-            </div>
-            <div
-              className="absolute top-0 flex flex-col items-center"
-              style={{ left: `${etMarkerPct}%`, transform: 'translateX(-50%)' }}
-            >
-              <span className="text-[10px] tracking-[0.15em] uppercase mb-0.5" style={{ color: T.muted }}>
-                ET
-              </span>
-              <div style={{ width: '1px', height: '8px', backgroundColor: T.muted, marginTop: '8px' }} />
-            </div>
-
-            <input
-              type="range"
-              min={-SLIDER_RANGE}
-              max={SLIDER_RANGE}
-              step={0.1}
-              value={centsOffset}
-              onChange={(e) => handleSliderChange(parseFloat(e.target.value))}
-              className="cents-slider w-full"
-            />
-
-            <div className="flex justify-between mt-2 text-[10px] num-tabular" style={{ color: T.muted }}>
-              <span>−{SLIDER_RANGE}</span>
-              <span>0</span>
-              <span>+{SLIDER_RANGE}</span>
-            </div>
-          </div>
-
-          <div className="flex gap-2 flex-wrap">
-            {[
-              { label: '−1',   delta: -1 },
-              { label: '−0.1', delta: -0.1 },
-              { label: 'cero', delta: null },
-              { label: '+0.1', delta: 0.1 },
-              { label: '+1',   delta: 1 },
-            ].map((b, i) => (
-              <button
-                key={i}
-                onClick={() => handleSliderChange(
-                  b.delta === null ? 0 : parseFloat((centsOffset + b.delta).toFixed(2))
+                {autoAB && isPlaying && (
+                  <span className="italic" style={{ color: T.limeDeep }}>↻ alternando…</span>
                 )}
-                className="px-3 py-1.5 text-xs num-tabular"
-                style={{ color: T.muted, border: `1px solid ${T.rule}`, borderRadius: '2px' }}
+                {autoAB && !isPlaying && (
+                  <span className="italic" style={{ color: T.muted }}>inicia el audio</span>
+                )}
+              </div>
+            </div>
+
+            {/* ── Transporte: iniciar/detener + volumen ── */}
+            <div className="flex items-center gap-4 flex-wrap">
+              <button
+                onClick={handleTogglePlay}
+                className="px-6 py-3 text-sm tracking-wider uppercase ab-fade"
+                style={{
+                  backgroundColor: isPlaying ? 'transparent' : T.ink,
+                  color: isPlaying ? T.ink : T.cream,
+                  border: `1px solid ${T.ink}`,
+                  borderRadius: '2px',
+                  minWidth: '140px',
+                }}
               >
-                {b.label}
+                {isPlaying ? '■  Detener' : '▶  Iniciar'}
               </button>
-            ))}
+
+              <div className="flex items-center gap-3 flex-1 min-w-[180px]">
+                <span className="text-[10px] tracking-[0.2em] uppercase" style={{ color: T.muted }}>
+                  Vol
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={volume}
+                  onChange={(e) => setVolume(parseFloat(e.target.value))}
+                  className="vol-slider flex-1"
+                />
+                <span className="text-xs num-tabular w-8 text-right" style={{ color: T.muted }}>
+                  {Math.round(volume * 100)}
+                </span>
+              </div>
+            </div>
+
+            {/* ── Ajuste fino ── */}
+            <div>
+              <div className="flex justify-between items-baseline mb-3">
+                <p className="text-[10px] tracking-[0.25em] uppercase" style={{ color: T.muted }}>
+                  Ajuste fino · cents desde temperado igual
+                </p>
+                <p className="text-xs num-tabular" style={{ color: T.muted }}>
+                  ±{SLIDER_RANGE} cents
+                </p>
+              </div>
+
+              <div className="relative pt-6 pb-8">
+                <div
+                  className="absolute top-0 flex flex-col items-center"
+                  style={{ left: `${justMarkerPct}%`, transform: 'translateX(-50%)' }}
+                >
+                  <span
+                    className="text-[10px] tracking-[0.15em] uppercase mb-0.5 px-1.5 py-0.5"
+                    style={{ backgroundColor: T.limeDeep, color: T.cream, borderRadius: '1px' }}
+                  >
+                    Justa
+                  </span>
+                  <div style={{ width: '1px', height: '8px', backgroundColor: T.limeDeep }} />
+                </div>
+                <div
+                  className="absolute top-0 flex flex-col items-center"
+                  style={{ left: `${etMarkerPct}%`, transform: 'translateX(-50%)' }}
+                >
+                  <span className="text-[10px] tracking-[0.15em] uppercase mb-0.5" style={{ color: T.muted }}>
+                    ET
+                  </span>
+                  <div style={{ width: '1px', height: '8px', backgroundColor: T.muted, marginTop: '8px' }} />
+                </div>
+
+                <input
+                  type="range"
+                  min={-SLIDER_RANGE}
+                  max={SLIDER_RANGE}
+                  step={0.1}
+                  value={centsOffset}
+                  onChange={(e) => handleSliderChange(parseFloat(e.target.value))}
+                  className="cents-slider w-full"
+                />
+
+                <div className="flex justify-between mt-2 text-[10px] num-tabular" style={{ color: T.muted }}>
+                  <span>−{SLIDER_RANGE}</span>
+                  <span>0</span>
+                  <span>+{SLIDER_RANGE}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  { label: '−1',   delta: -1 },
+                  { label: '−0.1', delta: -0.1 },
+                  { label: 'cero', delta: null },
+                  { label: '+0.1', delta: 0.1 },
+                  { label: '+1',   delta: 1 },
+                ].map((b, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleSliderChange(
+                      b.delta === null ? 0 : parseFloat((centsOffset + b.delta).toFixed(2))
+                    )}
+                    className="px-3 py-1.5 text-xs num-tabular ab-fade"
+                    style={{ color: T.muted, border: `1px solid ${T.rule}`, borderRadius: '2px' }}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Lecturas ── */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div>
+                <p className="text-[10px] tracking-[0.25em] uppercase mb-1" style={{ color: T.muted }}>
+                  Batimientos
+                </p>
+                <p className="font-display text-3xl num-tabular" style={{ color: isLocked ? T.limeDeep : T.ink }}>
+                  {computedBeatRate < 0.05 ? '0.00' : computedBeatRate.toFixed(2)}
+                  <span className="text-sm ml-1 opacity-60">Hz</span>
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] tracking-[0.25em] uppercase mb-1" style={{ color: T.muted }}>
+                  Cents (vs ET)
+                </p>
+                <p className="font-display text-3xl num-tabular">
+                  {centsOffset >= 0 ? '+' : ''}{centsOffset.toFixed(1)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] tracking-[0.25em] uppercase mb-1" style={{ color: T.muted }}>
+                  Distancia a justa
+                </p>
+                <p className="font-display text-3xl num-tabular" style={{ color: isNearLock ? T.limeDeep : T.ink }}>
+                  {distanceToJust >= 0 ? '+' : ''}{distanceToJust.toFixed(1)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] tracking-[0.25em] uppercase mb-1" style={{ color: T.muted }}>
+                  Frecuencia variable
+                </p>
+                <p className="font-display text-3xl num-tabular">
+                  {variableFreq.toFixed(2)}
+                  <span className="text-sm ml-1 opacity-60">Hz</span>
+                </p>
+              </div>
+            </div>
+
+            {/* ── Instrucciones ── */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '1px' }}>
+                <p className="font-display italic text-lg mb-3">Modo afinación</p>
+                <ol className="text-sm leading-relaxed space-y-2" style={{ color: T.inkSoft }}>
+                  <li><span className="num-tabular mr-2" style={{ color: T.muted }}>01</span>Elige un intervalo a la izquierda.</li>
+                  <li><span className="num-tabular mr-2" style={{ color: T.muted }}>02</span>Mueve el control de cents lentamente.</li>
+                  <li><span className="num-tabular mr-2" style={{ color: T.muted }}>03</span>El punto sin batimientos es la justa.</li>
+                </ol>
+              </div>
+              <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '1px' }}>
+                <p className="font-display italic text-lg mb-3">Comparación A / B</p>
+                <ol className="text-sm leading-relaxed space-y-2" style={{ color: T.inkSoft }}>
+                  <li><span className="num-tabular mr-2" style={{ color: T.muted }}>01</span>Pulsa A o B; vuelve a pulsar para detener.</li>
+                  <li><span className="num-tabular mr-2" style={{ color: T.muted }}>02</span>Atiende a la fusión, no a la altura.</li>
+                  <li><span className="num-tabular mr-2" style={{ color: T.muted }}>03</span>Usa &laquo;alternar automáticamente&raquo; para escuchar sin tocar.</li>
+                </ol>
+              </div>
+              <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '1px' }}>
+                <p className="font-display italic text-lg mb-3">Sobre los timbres</p>
+                <p className="text-sm leading-relaxed" style={{ color: T.inkSoft }}>
+                  Los batimientos viven en los armónicos. Cambia de timbre durante un mismo intervalo y notarás
+                  que algunos se vuelven imperceptibles: los instrumentos con armónicos pobres &laquo;ocultan&raquo;
+                  los problemas de afinación.
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs italic" style={{ color: T.muted }}>
+              Audífonos o monitores recomendados. Los batimientos viven en armónicos altos que las bocinas
+              pequeñas no reproducen bien.
+            </p>
+
           </div>
         </section>
 
-        {/* Lecturas */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
-          <div>
-            <p className="text-[10px] tracking-[0.25em] uppercase mb-1" style={{ color: T.muted }}>
-              Batimientos
-            </p>
-            <p className="font-display text-3xl num-tabular" style={{ color: isLocked ? T.limeDeep : T.ink }}>
-              {computedBeatRate < 0.05 ? '0.00' : computedBeatRate.toFixed(2)}
-              <span className="text-sm ml-1 opacity-60">Hz</span>
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] tracking-[0.25em] uppercase mb-1" style={{ color: T.muted }}>
-              Cents (vs ET)
-            </p>
-            <p className="font-display text-3xl num-tabular">
-              {centsOffset >= 0 ? '+' : ''}{centsOffset.toFixed(1)}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] tracking-[0.25em] uppercase mb-1" style={{ color: T.muted }}>
-              Distancia a justa
-            </p>
-            <p className="font-display text-3xl num-tabular" style={{ color: isNearLock ? T.limeDeep : T.ink }}>
-              {distanceToJust >= 0 ? '+' : ''}{distanceToJust.toFixed(1)}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] tracking-[0.25em] uppercase mb-1" style={{ color: T.muted }}>
-              Frecuencia variable
-            </p>
-            <p className="font-display text-3xl num-tabular">
-              {variableFreq.toFixed(2)}
-              <span className="text-sm ml-1 opacity-60">Hz</span>
-            </p>
-          </div>
-        </section>
-
-        {/* Transporte */}
-        <section className="flex items-center gap-6 flex-wrap mb-10">
-          <button
-            onClick={handleTogglePlay}
-            className="px-8 py-3 text-sm tracking-wider uppercase ab-fade"
-            style={{
-              backgroundColor: isPlaying ? 'transparent' : T.ink,
-              color: isPlaying ? T.ink : T.cream,
-              border: `1px solid ${T.ink}`,
-              borderRadius: '2px',
-              minWidth: '160px',
-            }}
-          >
-            {isPlaying ? '■  Detener' : '▶  Iniciar'}
-          </button>
-
-          <div className="flex items-center gap-3 flex-1 min-w-[200px] max-w-[280px]">
-            <span className="text-[10px] tracking-[0.2em] uppercase" style={{ color: T.muted }}>
-              Vol
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={volume}
-              onChange={(e) => setVolume(parseFloat(e.target.value))}
-              className="vol-slider flex-1"
-            />
-            <span className="text-xs num-tabular w-8 text-right" style={{ color: T.muted }}>
-              {Math.round(volume * 100)}
-            </span>
-          </div>
-        </section>
-
-        {/* Instrucciones */}
-        <section className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '1px' }}>
-            <p className="font-display italic text-lg mb-3">Afinación activa</p>
-            <ol className="text-sm leading-relaxed space-y-2" style={{ color: T.inkSoft }}>
-              <li><span className="num-tabular mr-2" style={{ color: T.muted }}>01</span>Mueve el control de cents lentamente.</li>
-              <li><span className="num-tabular mr-2" style={{ color: T.muted }}>02</span>Encuentra el punto sin batimientos: ahí está la justa.</li>
-              <li><span className="num-tabular mr-2" style={{ color: T.muted }}>03</span>Vuelve a cero. Compara con el temperado.</li>
-            </ol>
-          </div>
-          <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '1px' }}>
-            <p className="font-display italic text-lg mb-3">Comparación A / B</p>
-            <ol className="text-sm leading-relaxed space-y-2" style={{ color: T.inkSoft }}>
-              <li><span className="num-tabular mr-2" style={{ color: T.muted }}>01</span>Pulsa A o B mirando el visualizador.</li>
-              <li><span className="num-tabular mr-2" style={{ color: T.muted }}>02</span>Atiende a la fusión, no a la altura.</li>
-              <li><span className="num-tabular mr-2" style={{ color: T.muted }}>03</span>Activa &laquo;automático&raquo; para escuchar sin tocar.</li>
-            </ol>
-          </div>
-          <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '1px' }}>
-            <p className="font-display italic text-lg mb-3">Sobre los timbres</p>
-            <p className="text-sm leading-relaxed" style={{ color: T.inkSoft }}>
-              Los batimientos viven en los armónicos. Cambia de timbre durante un mismo intervalo y notarás que algunos se vuelven imperceptibles: los instrumentos con armónicos pobres &laquo;ocultan&raquo; los problemas de afinación.
-            </p>
-          </div>
-        </section>
-
-        <p className="text-xs italic mb-8" style={{ color: T.muted }}>
-          Audífonos o monitores recomendados.
-        </p>
-
-        <footer className="text-center pt-6" style={{ borderTop: `1px solid ${T.rule}` }}>
+        <footer className="text-center pt-10 mt-12" style={{ borderTop: `1px solid ${T.rule}` }}>
           <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: T.muted }}>
-            Método Aural · Taller de afinación
+            Método Aural · Taller de batimientos
           </p>
         </footer>
 
