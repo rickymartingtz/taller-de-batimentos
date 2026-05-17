@@ -63,8 +63,6 @@ const BLACK_KEYS = [
   { name: 'A#', display: 'A♯', semis: 1,  leftPct: (6 / 7) * 100 },
 ];
 
-const BLACK_KEY_LEFT = { 'C#': '9%', 'D#': '23.2%', 'F#': '51.7%', 'G#': '65.9%', 'A#': '80.2%' };
-
 const ALL_KEYS = [...WHITE_KEYS, ...BLACK_KEYS];
 const SEMITONE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 
@@ -247,23 +245,22 @@ const ENVELOPE_BUFFER_LEN = 240;
 const MIN_OCT = 2;
 const MAX_OCT = 5;
 const MAX_HARMONIC = 24;
-const TEMPERATE_NOTE_COUNT = 25;
+const TEMPERATE_NOTE_COUNT = 24;
 const PITCH_HISTORY_LEN = 200;
 const TUNER_RANGE_CENTS = 50;
 const IN_TUNE_THRESHOLD = 8;
 const PITCH_SMOOTH_ALPHA = 0.35;
 
 const T = {
-  // Paleta alineada con el entrenador de intervalos: zinc + acento sky.
-  cream:    '#f4f4f5', // zinc-100
-  paper:    '#ffffff',
-  ink:      '#09090b', // zinc-950
-  inkSoft:  '#3f3f46', // zinc-700
-  muted:    '#71717a', // zinc-500
-  rule:     '#e4e4e7', // zinc-200
-  lime:     '#bae6fd', // sky-200
-  limeDeep: '#0284c7', // sky-600
-  warn:     '#dc2626', // red-600
+  cream:    '#fdfaf0',
+  paper:    '#f4eedd',
+  ink:      '#1a3d2e',
+  inkSoft:  '#2d4f3e',
+  muted:    '#7a6e5a',
+  rule:     '#c9bda4',
+  lime:     '#b8d465',
+  limeDeep: '#7a9a3e',
+  warn:     '#a8593e',
 };
 
 // ════════════════════════════════════════════════════════════════════
@@ -279,8 +276,7 @@ export default function TallerBatimientos() {
   const [centsOffset, setCentsOffset] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.5);
-  const [temperateVolume, setTemperateVolume] = useState(0.5);
-  const [harmonicVolume, setHarmonicVolume] = useState(0.5);
+  const [previewVolume, setPreviewVolume] = useState(0.5);
   const [timbre, setTimbre] = useState('semisine');
   const [voiceMode, setVoiceMode] = useState('both');
 
@@ -451,8 +447,7 @@ export default function TallerBatimientos() {
     osc.connect(filter);
 
     const now = ctx.currentTime;
-    const previewLevel = type === 'h' ? harmonicVolume : temperateVolume;
-    const target = cfg.voiceGain * previewLevel * 2.2;
+    const target = cfg.voiceGain * previewVolume * 2.2;
     previewGain.gain.setValueAtTime(0, now);
     previewGain.gain.linearRampToValueAtTime(target, now + 0.03);
     osc.start(now);
@@ -470,7 +465,7 @@ export default function TallerBatimientos() {
       }
     };
     setActivePreview({ type, id, freq, midi });
-  }, [timbre, temperateVolume, harmonicVolume, initAudio]);
+  }, [timbre, previewVolume, initAudio]);
 
   const stopPreview = useCallback(() => {
     if (previewVoiceRef.current) {
@@ -497,12 +492,11 @@ export default function TallerBatimientos() {
     const ctx = ctxRef.current;
     if (gain && ctx && activePreview) {
       const cfg = TIMBRES.find(t => t.id === timbre);
-      const previewLevel = activePreview.type === 'h' ? harmonicVolume : temperateVolume;
-      const target = cfg.voiceGain * previewLevel * 2.2;
+      const target = cfg.voiceGain * previewVolume * 2.2;
       gain.gain.cancelScheduledValues(ctx.currentTime);
       gain.gain.linearRampToValueAtTime(target, ctx.currentTime + 0.05);
     }
-  }, [temperateVolume, harmonicVolume, activePreview, timbre]);
+  }, [previewVolume, activePreview, timbre]);
 
   // ──────────────────────────────────────────────────────────────────
   // Micrófono
@@ -901,17 +895,18 @@ export default function TallerBatimientos() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-zinc-100 px-3 py-4 text-zinc-950 sm:px-6 sm:py-6 md:px-10 md:py-10" style={{ backgroundColor: T.cream, color: T.ink, paddingBottom: 'calc(12.5vh + 28px)' }}>
+    <div className="min-h-screen w-full" style={{ backgroundColor: T.cream, color: T.ink }}>
       <style>{`
-        .font-display { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-style: normal !important; }
-        .font-body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap');
+        .font-display { font-family: 'Cormorant Garamond', Georgia, serif; }
+        .font-body { font-family: 'DM Sans', system-ui, sans-serif; }
         .num-tabular { font-variant-numeric: tabular-nums; }
-        input[type="range"].cents-slider { -webkit-appearance: none; appearance: none; height: 6px; background: ${T.rule}; border-radius: 999px; outline: none; }
-        input[type="range"].cents-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: ${T.ink}; border: 2px solid ${T.paper}; cursor: grab; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+        input[type="range"].cents-slider { -webkit-appearance: none; appearance: none; height: 4px; background: ${T.rule}; border-radius: 2px; outline: none; }
+        input[type="range"].cents-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: ${T.ink}; border: 2px solid ${T.cream}; cursor: grab; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
         input[type="range"].cents-slider::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: ${T.ink}; border: 2px solid ${T.cream}; cursor: grab; }
-        input[type="range"].vol-slider { -webkit-appearance: none; appearance: none; height: 6px; background: ${T.rule}; border-radius: 999px; outline: none; }
-        input[type="range"].vol-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: ${T.ink}; cursor: pointer; }
-        input[type="range"].vol-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: ${T.ink}; cursor: pointer; border: none; }
+        input[type="range"].vol-slider { -webkit-appearance: none; appearance: none; height: 2px; background: ${T.rule}; border-radius: 1px; outline: none; }
+        input[type="range"].vol-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; background: ${T.ink}; cursor: pointer; }
+        input[type="range"].vol-slider::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: ${T.ink}; cursor: pointer; border: none; }
         .pulse-lock { animation: pulseLock 2s ease-in-out infinite; }
         @keyframes pulseLock { 0%,100%{opacity:1} 50%{opacity:0.6} }
         .play-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: ${T.lime}; margin-left: 8px; vertical-align: middle; animation: playPulse 1.4s ease-in-out infinite; }
@@ -920,13 +915,9 @@ export default function TallerBatimientos() {
         .key-btn { padding: 0; cursor: pointer; }
         .key-btn:hover { filter: brightness(0.97); }
         .tuner-line { position: absolute; top: 0; bottom: 0; width: 2px; transition: left 0.08s linear, background-color 0.15s linear; }
-        body { padding-bottom: calc(12.5vh + 28px); }
-        .workbench-grid { display: grid; grid-template-columns: 1fr; }
-        @media (min-width: 1280px) { .workbench-grid { grid-template-columns: clamp(128px, 12.5vw, 180px) minmax(0, 1fr); } }
-        .interval-panel { align-self: start; max-height: calc(87.5vh - 36px); overflow: hidden; }
-        @media (min-width: 1280px) { .interval-panel { width: clamp(128px, 12.5vw, 180px); max-width: clamp(128px, 12.5vw, 180px); } }
-        .scrollable-intervals { max-height: calc(87.5vh - 72px); overflow-y: auto; padding-right: 2px; }
-        .scrollable-intervals::-webkit-scrollbar { width: 5px; }
+        body { padding-bottom: 250px; }
+        .scrollable-intervals { max-height: calc(100vh - 280px); overflow-y: auto; padding-right: 4px; }
+        .scrollable-intervals::-webkit-scrollbar { width: 6px; }
         .scrollable-intervals::-webkit-scrollbar-track { background: transparent; }
         .scrollable-intervals::-webkit-scrollbar-thumb { background: ${T.rule}; border-radius: 3px; }
         .staff-scroll::-webkit-scrollbar { height: 8px; }
@@ -934,27 +925,24 @@ export default function TallerBatimientos() {
         .staff-scroll::-webkit-scrollbar-thumb { background: ${T.rule}; border-radius: 4px; }
       `}</style>
 
-      <div className="mx-auto max-w-[1600px] space-y-4 sm:space-y-6 font-body">
+      <div className="max-w-5xl mx-auto px-6 py-10 md:py-14 font-body">
 
         {/* CABECERA */}
-        <header className="space-y-2">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Método Aural</p>
-              <h1 className="text-2xl font-bold tracking-tight text-zinc-950 sm:text-3xl">Taller de batimientos</h1>
-              <p className="mt-2 text-sm text-zinc-600 sm:text-base">Entonación justa y temperamento igual</p>
-            </div>
-            <span className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">Afinación activa</span>
-          </div>
+        <header className="mb-8 md:mb-10">
+          <p className="text-[10px] tracking-[0.3em] uppercase mb-2" style={{ color: T.muted }}>Método Aural</p>
+          <h1 className="font-display text-4xl md:text-5xl leading-none italic" style={{ color: T.ink }}>Taller de batimientos</h1>
+          <p className="text-base md:text-lg mt-3 italic" style={{ color: T.inkSoft }}>Entonación justa y temperamento igual</p>
+          <div className="h-px mt-6" style={{ backgroundColor: T.rule }} />
         </header>
 
         {/* TEORÍA COLAPSABLE */}
-        <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
+        <section className="mb-10">
           <button onClick={() => setShowTheory(s => !s)}
-            className="w-full text-left flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-zinc-950 transition hover:bg-zinc-100">
+            className="w-full text-left flex items-center justify-between gap-3 py-3 ab-fade"
+            style={{ borderBottom: `1px solid ${T.rule}` }}>
             <div>
               <p className="text-[10px] tracking-[0.3em] uppercase" style={{ color: T.muted }}>Parte teórica</p>
-              <p className="text-base font-semibold" style={{ color: T.ink }}>
+              <p className="font-display italic text-2xl" style={{ color: T.ink }}>
                 Cómo funciona el sonido, paso a paso
               </p>
             </div>
@@ -967,30 +955,29 @@ export default function TallerBatimientos() {
         </section>
 
         {/* HERRAMIENTA */}
-        <div className="pt-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">La herramienta</p>
-          <h2 className="mt-1 text-xl font-bold tracking-tight text-zinc-950 sm:text-2xl">Taller práctico</h2>
-        </div>
+        <p className="text-[10px] tracking-[0.3em] uppercase mb-3" style={{ color: T.muted }}>La herramienta</p>
+        <h2 className="font-display italic text-3xl md:text-4xl mb-8" style={{ color: T.ink }}>Taller práctico</h2>
 
-        <section className="workbench-grid gap-4 sm:gap-5 items-start">
+        <section className="grid grid-cols-1 lg:grid-cols-[210px_1fr] gap-8 items-start">
 
           {/* Intervalos (scroll propio) */}
-          <div className="interval-panel rounded-2xl border border-zinc-200 bg-white p-2 shadow-sm xl:sticky xl:top-5">
-            <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Intervalos</p>
-            <div className="scrollable-intervals flex flex-col gap-1">
+          <div className="lg:sticky lg:top-6">
+            <p className="text-[10px] tracking-[0.25em] uppercase mb-3" style={{ color: T.muted }}>Intervalo</p>
+            <div className="scrollable-intervals flex flex-col gap-1.5">
               {INTERVALS.map((iv, i) => {
                 const active = i === intervalIdx;
                 return (
-                  <button
-                    key={iv.id}
-                    onClick={() => handleIntervalClick(i)}
-                    className={`block w-full rounded-lg border px-1.5 py-1 text-left text-[10px] font-semibold leading-tight transition ${active ? "border-zinc-950 bg-zinc-950 text-white shadow-sm" : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-500 hover:bg-zinc-100"}`}
-                  >
-                    <span className="flex items-center justify-between gap-1">
-                      <span className="truncate">{iv.name}</span>
-                      {active && isPlaying && <span className="play-dot" />}
-                    </span>
-                    <span className={`mt-0.5 block text-[8px] tabular-nums ${active ? "text-white/70" : "text-zinc-500"}`}>{iv.ratio}</span>
+                  <button key={iv.id} onClick={() => handleIntervalClick(i)} className="block text-left px-3 py-2 ab-fade"
+                    style={{
+                      backgroundColor: active ? T.ink : 'transparent',
+                      color: active ? T.cream : T.ink,
+                      border: `1px solid ${active ? T.ink : T.rule}`,
+                      borderRadius: '2px', flexShrink: 0,
+                    }}>
+                    <div className="font-display italic text-sm flex items-center">
+                      {iv.name}{active && isPlaying && <span className="play-dot" />}
+                    </div>
+                    <div className="text-[10px] opacity-70 num-tabular mt-0.5">{iv.ratio}</div>
                   </button>
                 );
               })}
@@ -998,10 +985,10 @@ export default function TallerBatimientos() {
           </div>
 
           {/* Columna principal */}
-          <div className="flex flex-col gap-4 sm:gap-6 min-w-0">
+          <div className="flex flex-col gap-8 min-w-0">
 
             {/* Drone */}
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
+            <div>
               <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4">
                 <p className="text-[10px] tracking-[0.25em] uppercase" style={{ color: T.muted }}>Drone</p>
                 <p className="font-display italic text-xl">
@@ -1010,40 +997,44 @@ export default function TallerBatimientos() {
                 </p>
               </div>
               <div className="flex items-stretch gap-4 flex-wrap">
-                <div className="mx-auto w-full max-w-2xl pt-3 sm:pt-4" style={{ minWidth: '280px' }}>
-                  <div className="relative h-28 w-full select-none overflow-visible rounded-b-2xl border border-zinc-300 bg-zinc-200 p-1.5 shadow-sm sm:h-32 sm:p-2">
-                    <div className="flex h-full gap-0.5 sm:gap-1">
-                      {WHITE_KEYS.map((k) => {
-                        const active = noteName === k.name;
-                        return (
-                          <button
-                            type="button"
-                            key={k.name}
-                            onClick={() => setNoteName(k.name)}
-                            className={`relative flex flex-1 items-end justify-center rounded-b-xl border pb-2 text-[10px] font-semibold transition sm:pb-3 sm:text-xs ${active ? "border-zinc-950 bg-zinc-100 text-zinc-950 ring-2 ring-sky-300" : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"}`}
-                          >
-                            {k.display}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {BLACK_KEYS.map(k => {
+                <div className="relative flex-1" style={{ minWidth: '280px', maxWidth: '460px', height: '110px' }}>
+                  <div className="flex absolute inset-0">
+                    {WHITE_KEYS.map((k, i) => {
                       const active = noteName === k.name;
                       return (
-                        <button
-                          type="button"
-                          key={k.name}
-                          onClick={() => setNoteName(k.name)}
-                          className={`absolute top-1.5 z-10 flex h-[62px] w-[9.5%] items-start justify-center rounded-b-lg px-1 pt-2 text-center text-[8px] font-semibold leading-tight transition sm:top-2 sm:h-[74px] sm:text-[9px] ${active ? "bg-sky-700 text-white ring-2 ring-sky-300" : "bg-zinc-950 text-white hover:bg-zinc-800"}`}
-                          style={{ left: BLACK_KEY_LEFT[k.name] ?? `calc(${k.leftPct}% - 4.75%)` }}
-                        >
-                          <span className={`absolute -top-5 left-1/2 w-14 -translate-x-1/2 rounded-full border px-1 py-1 text-[8px] font-semibold leading-none shadow-sm sm:-top-6 sm:w-20 sm:px-2 sm:text-[10px] ${active ? "border-sky-200 bg-sky-50 text-sky-700" : "border-zinc-200 bg-white text-zinc-700"}`}>
+                        <button key={k.name} onClick={() => setNoteName(k.name)} className="key-btn flex-1 relative ab-fade"
+                          style={{
+                            backgroundColor: active ? T.lime : T.cream,
+                            border: `1px solid ${T.ink}`,
+                            borderRight: i === WHITE_KEYS.length - 1 ? `1px solid ${T.ink}` : 'none',
+                            borderRadius: 0,
+                          }}>
+                          <span className="absolute bottom-2 left-1/2 font-display text-base"
+                            style={{ transform: 'translateX(-50%)', color: T.ink, fontWeight: active ? 600 : 400 }}>
                             {k.display}
                           </span>
                         </button>
                       );
                     })}
                   </div>
+                  {BLACK_KEYS.map(k => {
+                    const active = noteName === k.name;
+                    const blackW = 9;
+                    return (
+                      <button key={k.name} onClick={() => setNoteName(k.name)} className="key-btn absolute ab-fade"
+                        style={{
+                          left: `calc(${k.leftPct}% - ${blackW / 2}%)`, width: `${blackW}%`,
+                          top: 0, height: '62%',
+                          backgroundColor: active ? T.limeDeep : T.ink,
+                          border: `1px solid ${T.ink}`, zIndex: 10, borderRadius: '0 0 2px 2px',
+                        }}>
+                        <span className="absolute bottom-1 left-1/2 text-[9px]"
+                          style={{ transform: 'translateX(-50%)', color: active ? T.ink : T.cream, fontWeight: 500 }}>
+                          {k.display}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="flex flex-col items-center justify-center" style={{ minWidth: '90px' }}>
                   <p className="text-[10px] tracking-[0.25em] uppercase mb-2" style={{ color: T.muted }}>Octava</p>
@@ -1061,7 +1052,7 @@ export default function TallerBatimientos() {
             </div>
 
             {/* Timbre */}
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
+            <div>
               <p className="text-[10px] tracking-[0.25em] uppercase mb-3" style={{ color: T.muted }}>Timbre del sintetizador</p>
               <div className="flex flex-wrap gap-2 mb-2">
                 {TIMBRES.map(t => {
@@ -1070,7 +1061,7 @@ export default function TallerBatimientos() {
                     <button key={t.id} onClick={() => setTimbre(t.id)} className="px-4 py-2 text-sm ab-fade"
                       style={{
                         backgroundColor: active ? T.ink : 'transparent', color: active ? T.cream : T.ink,
-                        border: `1px solid ${active ? T.ink : T.rule}`, borderRadius: '0.9rem',
+                        border: `1px solid ${active ? T.ink : T.rule}`, borderRadius: '2px',
                       }}>
                       <span className="font-display italic text-base">{t.name}</span>
                     </button>
@@ -1081,7 +1072,7 @@ export default function TallerBatimientos() {
             </div>
 
             {/* Aislar voces */}
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
+            <div>
               <p className="text-[10px] tracking-[0.25em] uppercase mb-3" style={{ color: T.muted }}>Aislar voces</p>
               <div className="flex gap-2 flex-wrap mb-2">
                 {['drone', 'both', 'variable'].map(mode => {
@@ -1090,7 +1081,7 @@ export default function TallerBatimientos() {
                     <button key={mode} onClick={() => setVoiceMode(mode)} className="px-4 py-2 text-sm ab-fade"
                       style={{
                         backgroundColor: active ? T.ink : 'transparent', color: active ? T.cream : T.ink,
-                        border: `1px solid ${active ? T.ink : T.rule}`, borderRadius: '0.9rem',
+                        border: `1px solid ${active ? T.ink : T.rule}`, borderRadius: '2px',
                       }}>
                       <span className="font-display italic text-base">{VOICE_LABELS[mode]}</span>
                     </button>
@@ -1103,7 +1094,7 @@ export default function TallerBatimientos() {
             </div>
 
             {/* A/B + afinadores */}
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
+            <div className="p-4" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '1px' }}>
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div className="flex flex-col gap-3">
                   <button onClick={() => handleABClick('A')} className="py-3 px-4 ab-fade text-left"
@@ -1111,7 +1102,7 @@ export default function TallerBatimientos() {
                       backgroundColor: currentAB === 'A' ? T.limeDeep : T.cream,
                       color: currentAB === 'A' ? T.cream : T.ink,
                       border: `1px solid ${currentAB === 'A' ? T.limeDeep : T.rule}`,
-                      borderRadius: '0.9rem',
+                      borderRadius: '2px',
                       boxShadow: currentAB === 'A' ? '0 4px 12px rgba(122,154,62,0.25)' : 'none',
                     }}>
                     <p className="text-[10px] tracking-[0.3em] uppercase opacity-70 flex items-center">
@@ -1131,7 +1122,7 @@ export default function TallerBatimientos() {
                       backgroundColor: currentAB === 'B' ? T.ink : T.cream,
                       color: currentAB === 'B' ? T.cream : T.ink,
                       border: `1px solid ${currentAB === 'B' ? T.ink : T.rule}`,
-                      borderRadius: '0.9rem',
+                      borderRadius: '2px',
                       boxShadow: currentAB === 'B' ? '0 4px 12px rgba(26,61,46,0.2)' : 'none',
                     }}>
                     <p className="text-[10px] tracking-[0.3em] uppercase opacity-70 flex items-center">
@@ -1149,12 +1140,12 @@ export default function TallerBatimientos() {
                 style={{ borderTop: `1px solid ${T.rule}` }}>
                 {!micEnabled ? (
                   <button onClick={enableMicrophone} className="px-3 py-1.5 ab-fade"
-                    style={{ backgroundColor: T.ink, color: T.cream, borderRadius: '0.9rem' }}>
+                    style={{ backgroundColor: T.ink, color: T.cream, borderRadius: '2px' }}>
                     Habilitar micrófono
                   </button>
                 ) : (
                   <button onClick={disableMicrophone} className="px-3 py-1.5 ab-fade"
-                    style={{ backgroundColor: 'transparent', color: T.ink, border: `1px solid ${T.ink}`, borderRadius: '0.9rem' }}>
+                    style={{ backgroundColor: 'transparent', color: T.ink, border: `1px solid ${T.ink}`, borderRadius: '2px' }}>
                     Desactivar micrófono
                   </button>
                 )}
@@ -1170,7 +1161,7 @@ export default function TallerBatimientos() {
                   className="flex items-center gap-2 cursor-pointer select-none"
                   style={{ background: 'none', border: 'none', padding: 0, color: T.ink }}>
                   <span className="w-4 h-4 inline-flex items-center justify-center ab-fade"
-                    style={{ backgroundColor: autoAB ? T.ink : 'transparent', border: `1px solid ${T.ink}`, borderRadius: '0.9rem' }}>
+                    style={{ backgroundColor: autoAB ? T.ink : 'transparent', border: `1px solid ${T.ink}`, borderRadius: '2px' }}>
                     {autoAB && <span style={{ color: T.cream, fontSize: '10px', lineHeight: 1 }}>✓</span>}
                   </span>
                   <span>Alternar automáticamente</span>
@@ -1185,7 +1176,7 @@ export default function TallerBatimientos() {
                           color: !autoAB ? T.rule : (active ? T.cream : T.muted),
                           backgroundColor: active && autoAB ? T.ink : 'transparent',
                           border: `1px solid ${active && autoAB ? T.ink : T.rule}`,
-                          borderRadius: '0.9rem', cursor: autoAB ? 'pointer' : 'not-allowed',
+                          borderRadius: '2px', cursor: autoAB ? 'pointer' : 'not-allowed',
                         }}>
                         {ms / 1000}s
                       </button>
@@ -1203,7 +1194,7 @@ export default function TallerBatimientos() {
                 style={{
                   backgroundColor: isPlaying ? 'transparent' : T.ink,
                   color: isPlaying ? T.ink : T.cream,
-                  border: `1px solid ${T.ink}`, borderRadius: '0.9rem', minWidth: '140px',
+                  border: `1px solid ${T.ink}`, borderRadius: '2px', minWidth: '140px',
                 }}>
                 {isPlaying ? '■  Detener' : '▶  Iniciar'}
               </button>
@@ -1216,7 +1207,7 @@ export default function TallerBatimientos() {
             </div>
 
             {/* Ajuste fino */}
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
+            <div>
               <div className="flex justify-between items-baseline mb-3">
                 <p className="text-[10px] tracking-[0.25em] uppercase" style={{ color: T.muted }}>Ajuste fino · cents desde ET</p>
                 <p className="text-xs num-tabular" style={{ color: T.muted }}>±{SLIDER_RANGE} cents</p>
@@ -1225,7 +1216,7 @@ export default function TallerBatimientos() {
                 <div className="absolute top-0 flex flex-col items-center"
                   style={{ left: `${justMarkerPct}%`, transform: 'translateX(-50%)' }}>
                   <span className="text-[10px] tracking-[0.15em] uppercase mb-0.5 px-1.5 py-0.5"
-                    style={{ backgroundColor: T.limeDeep, color: T.cream, borderRadius: '0.75rem' }}>Justa</span>
+                    style={{ backgroundColor: T.limeDeep, color: T.cream, borderRadius: '1px' }}>Justa</span>
                   <div style={{ width: '1px', height: '8px', backgroundColor: T.limeDeep }} />
                 </div>
                 <div className="absolute top-0 flex flex-col items-center"
@@ -1248,45 +1239,33 @@ export default function TallerBatimientos() {
                   <button key={i}
                     onClick={() => handleSliderChange(b.delta === null ? 0 : parseFloat((centsOffset + b.delta).toFixed(2)))}
                     className="px-3 py-1.5 text-xs num-tabular ab-fade"
-                    style={{ color: T.muted, border: `1px solid ${T.rule}`, borderRadius: '0.9rem' }}>{b.label}</button>
+                    style={{ color: T.muted, border: `1px solid ${T.rule}`, borderRadius: '2px' }}>{b.label}</button>
                 ))}
               </div>
             </div>
 
             {/* Control de volumen para previews */}
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                Volumen de notas / armónicos
-              </p>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="flex items-center gap-3">
-                  <span className="min-w-[118px] text-xs font-medium text-zinc-700">Notas temperadas</span>
-                  <input type="range" min={0} max={1} step={0.01} value={temperateVolume}
-                    onChange={(e) => setTemperateVolume(parseFloat(e.target.value))} className="vol-slider flex-1 min-w-[120px]" />
-                  <span className="w-8 text-right text-xs tabular-nums text-zinc-500">
-                    {Math.round(temperateVolume * 100)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="min-w-[118px] text-xs font-medium text-zinc-700">Armónicos del drone</span>
-                  <input type="range" min={0} max={1} step={0.01} value={harmonicVolume}
-                    onChange={(e) => setHarmonicVolume(parseFloat(e.target.value))} className="vol-slider flex-1 min-w-[120px]" />
-                  <span className="w-8 text-right text-xs tabular-nums text-zinc-500">
-                    {Math.round(harmonicVolume * 100)}
-                  </span>
-                </div>
-              </div>
+            <div className="flex items-center gap-3 flex-wrap" style={{ borderTop: `1px solid ${T.rule}`, paddingTop: '12px' }}>
+              <span className="text-[10px] tracking-[0.2em] uppercase" style={{ color: T.muted, minWidth: '120px' }}>
+                Vol notas / armónicos
+              </span>
+              <input type="range" min={0} max={1} step={0.01} value={previewVolume}
+                onChange={(e) => setPreviewVolume(parseFloat(e.target.value))} className="vol-slider flex-1 min-w-[120px]" />
+              <span className="text-xs num-tabular w-8 text-right" style={{ color: T.muted }}>
+                {Math.round(previewVolume * 100)}
+              </span>
               {activePreview && (
-                <button onClick={stopPreview} className="mt-4 rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50">
-                  Detener nota activa
+                <button onClick={stopPreview} className="px-3 py-1 text-xs ab-fade"
+                  style={{ border: `1px solid ${T.warn}`, color: T.warn, borderRadius: '2px' }}>
+                  Detener preview
                 </button>
               )}
             </div>
 
             {/* Notas temperadas en pentagrama */}
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
+            <div>
               <p className="text-[10px] tracking-[0.25em] uppercase mb-3" style={{ color: T.muted }}>
-                Notas temperadas · 2 octavas completas desde {noteName}{octave}
+                Notas temperadas · 2 octavas desde {noteName}{octave}
               </p>
               <NoteStaff
                 notes={temperateNotes.map(n => ({
@@ -1299,19 +1278,19 @@ export default function TallerBatimientos() {
               />
               <p className="text-xs italic mt-2" style={{ color: T.muted }}>
                 Toca una nota para activarla; toca de nuevo para detenerla. Empieza desde la fundamental del drone
-                y sube cromáticamente dos octavas completas, incluyendo la nota final de la segunda octava. La nota activa se ilumina.
+                y sube cromáticamente dos octavas. La nota activa se ilumina.
               </p>
             </div>
 
             {/* Armónicos en pentagrama */}
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
+            <div>
               <p className="text-[10px] tracking-[0.25em] uppercase mb-3" style={{ color: T.muted }}>
-                Armónicos del drone · Arm. 1 a Arm. {MAX_HARMONIC}
+                Armónicos del drone · 1° a {MAX_HARMONIC}°
               </p>
               <NoteStaff
                 notes={harmonicNotes.map(h => ({
                   id: h.id, midi: h.midi, freq: h.freq,
-                  label: `Arm. ${h.n}`,
+                  label: `${h.n}°`,
                   noteApprox: h.noteDisplay,
                   sublabel: `${h.info.centsFromET >= 0 ? '+' : ''}${h.info.centsFromET.toFixed(0)}¢`,
                   centsFromET: h.info.centsFromET,
@@ -1322,13 +1301,13 @@ export default function TallerBatimientos() {
               />
               <p className="text-xs italic mt-2" style={{ color: T.muted }}>
                 Cada nota es el armónico exacto del drone, no su aproximación temperada.
-                Los cents indican cuánto se desvía cada armónico de su nota temperada más cercana. Uso “Arm.” como abreviatura en español de armónico; notación científica: C4 = Do central.
+                Los cents indican cuánto se desvía cada armónico del piano. Notación científica: C4 = Do central.
               </p>
             </div>
 
             {/* Instrucciones */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '0.75rem' }}>
+              <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '1px' }}>
                 <p className="font-display italic text-lg mb-3">Modo afinación</p>
                 <ol className="text-sm leading-relaxed space-y-2" style={{ color: T.inkSoft }}>
                   <li><span className="num-tabular mr-2" style={{ color: T.muted }}>01</span>Elige un intervalo.</li>
@@ -1336,7 +1315,7 @@ export default function TallerBatimientos() {
                   <li><span className="num-tabular mr-2" style={{ color: T.muted }}>03</span>Busca el punto sin batimientos.</li>
                 </ol>
               </div>
-              <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '0.75rem' }}>
+              <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '1px' }}>
                 <p className="font-display italic text-lg mb-3">Afinadores con voz</p>
                 <ol className="text-sm leading-relaxed space-y-2" style={{ color: T.inkSoft }}>
                   <li><span className="num-tabular mr-2" style={{ color: T.muted }}>01</span>Habilita el micrófono con audífonos.</li>
@@ -1344,7 +1323,7 @@ export default function TallerBatimientos() {
                   <li><span className="num-tabular mr-2" style={{ color: T.muted }}>03</span>El afinador justo detecta la clase de armónico.</li>
                 </ol>
               </div>
-              <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '0.75rem' }}>
+              <div className="p-5" style={{ backgroundColor: T.paper, borderLeft: `2px solid ${T.ink}`, borderRadius: '1px' }}>
                 <p className="font-display italic text-lg mb-3">Sobre los timbres</p>
                 <p className="text-sm leading-relaxed" style={{ color: T.inkSoft }}>
                   Cambia de timbre durante un mismo intervalo y notarás que algunos vuelven los batimientos
@@ -1360,85 +1339,93 @@ export default function TallerBatimientos() {
         </footer>
       </div>
 
-      {/* BARRA INFERIOR FIJA: visualizador compacto de 1/8 de pantalla */}
-      <div
-        className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white/95 shadow-2xl backdrop-blur"
-        style={{ height: '12.5vh', minHeight: '88px', maxHeight: '128px' }}
-      >
-        <div className="mx-auto flex h-full max-w-[1800px] gap-2 px-3 py-2 sm:px-5">
-          <div
-            className="relative h-full min-w-0 flex-1 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 shadow-sm"
-            style={{
-              boxShadow: isLocked && isPlaying ? 'inset 0 0 0 2px rgb(16 185 129 / 0.55)' : undefined,
-            }}
-          >
-            <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
-            {isLocked && isPlaying && (
-              <div className="absolute right-2 top-2 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
-                Encaje puro
+      {/* BARRA INFERIOR FIJA: visualizador + lecturas + notas sonando */}
+      <div className="fixed bottom-0 left-0 right-0 z-40"
+        style={{ backgroundColor: T.cream, borderTop: `1px solid ${T.rule}`, boxShadow: '0 -4px 16px rgba(0,0,0,0.06)' }}>
+        <div className="max-w-5xl mx-auto px-6 py-3">
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1" style={{
+              border: `1px solid ${T.rule}`, borderRadius: '2px', overflow: 'hidden',
+              boxShadow: isLocked && isPlaying ? `inset 0 0 0 2px ${T.lime}` : 'none',
+              minWidth: '300px',
+            }}>
+              <canvas ref={canvasRef} style={{ width: '100%', height: '130px', display: 'block' }} />
+              {isLocked && isPlaying && (
+                <div className="absolute top-2 right-2 pulse-lock px-2 py-1 text-[10px] tracking-[0.2em] uppercase"
+                  style={{ backgroundColor: T.limeDeep, color: T.cream, borderRadius: '2px' }}>
+                  Encaje puro
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-x-5 gap-y-1" style={{ minWidth: '210px' }}>
+              <div>
+                <p className="text-[9px] tracking-[0.2em] uppercase" style={{ color: T.muted }}>Batimientos</p>
+                <p className="font-display text-xl num-tabular leading-tight" style={{ color: isLocked ? T.limeDeep : T.ink }}>
+                  {computedBeatRate < 0.05 ? '0.00' : computedBeatRate.toFixed(2)}
+                  <span className="text-[10px] ml-1 opacity-60">Hz</span>
+                </p>
               </div>
-            )}
-          </div>
-
-          <div className="hidden h-full w-[250px] grid-cols-2 gap-1.5 sm:grid xl:w-[320px]">
-            <div className="min-h-0 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">
-              <p className="truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Batimientos</p>
-              <p className={`truncate text-sm font-bold tabular-nums ${isLocked ? "text-emerald-700" : "text-zinc-900"}`}>
-                {computedBeatRate < 0.05 ? '0.00' : computedBeatRate.toFixed(2)} <span className="text-[9px] text-zinc-500">Hz</span>
-              </p>
-            </div>
-            <div className="min-h-0 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">
-              <p className="truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Cents ET</p>
-              <p className="truncate text-sm font-bold tabular-nums text-zinc-900">
-                {centsOffset >= 0 ? '+' : ''}{centsOffset.toFixed(1)}
-              </p>
-            </div>
-            <div className="min-h-0 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">
-              <p className="truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Δ justa</p>
-              <p className={`truncate text-sm font-bold tabular-nums ${isNearLock ? "text-emerald-700" : "text-zinc-900"}`}>
-                {distanceToJust >= 0 ? '+' : ''}{distanceToJust.toFixed(1)}
-              </p>
-            </div>
-            <div className="min-h-0 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">
-              <p className="truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Variable</p>
-              <p className="truncate text-sm font-bold tabular-nums text-zinc-900">
-                {variableFreq.toFixed(1)} <span className="text-[9px] text-zinc-500">Hz</span>
-              </p>
-            </div>
-          </div>
-
-          <div className="hidden h-full w-[300px] min-w-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 px-2 py-1 xl:flex 2xl:w-[420px]">
-            <p className="mb-1 text-[8px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Sonando / intervalos</p>
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1 text-[10px]">
-              <div className="flex flex-wrap items-center gap-1.5">
-                {soundingVoices.length === 0 && (
-                  <span className="italic text-zinc-500">Nada activo todavía</span>
-                )}
-                {soundingVoices.map((v, i) => (
-                  <span key={i} className="inline-flex items-baseline gap-1 rounded-full border border-zinc-200 bg-white px-2 py-0.5 shadow-sm">
-                    <span className="text-[8px] text-zinc-500">{v.label}</span>
-                    <span className="font-semibold text-zinc-900">{v.note}</span>
-                    <span className={`tabular-nums text-[9px] ${Math.abs(v.cents) < IN_TUNE_THRESHOLD ? "text-emerald-700" : "text-red-700"}`}>
-                      {v.cents >= 0 ? '+' : ''}{v.cents.toFixed(1)}¢
-                    </span>
-                    <span className="tabular-nums text-[9px] text-zinc-500">{v.freq.toFixed(1)} Hz</span>
-                  </span>
-                ))}
-                {soundingIntervals.map((si, i) => (
-                  <span key={i} className="inline-flex items-baseline gap-1 rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-zinc-700 shadow-sm">
-                    <span className="text-[8px] text-zinc-500">{si.from}→{si.to}</span>
-                    <span className="font-semibold text-zinc-900">{si.interval.name}</span>
-                    {si.interval.ratio && <span className="tabular-nums text-[9px] text-zinc-500">{si.interval.ratio}</span>}
-                    <span className={`tabular-nums text-[9px] ${si.interval.kind === 'justa' ? "text-emerald-700" : "text-zinc-500"}`}>
-                      {si.interval.cents >= 0 ? '+' : ''}{si.interval.cents.toFixed(1)}¢ {si.interval.kind || ''}
-                    </span>
-                  </span>
-                ))}
+              <div>
+                <p className="text-[9px] tracking-[0.2em] uppercase" style={{ color: T.muted }}>Cents (ET)</p>
+                <p className="font-display text-xl num-tabular leading-tight">
+                  {centsOffset >= 0 ? '+' : ''}{centsOffset.toFixed(1)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[9px] tracking-[0.2em] uppercase" style={{ color: T.muted }}>Δ justa</p>
+                <p className="font-display text-xl num-tabular leading-tight" style={{ color: isNearLock ? T.limeDeep : T.ink }}>
+                  {distanceToJust >= 0 ? '+' : ''}{distanceToJust.toFixed(1)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[9px] tracking-[0.2em] uppercase" style={{ color: T.muted }}>Variable</p>
+                <p className="font-display text-xl num-tabular leading-tight">
+                  {variableFreq.toFixed(1)}<span className="text-[10px] ml-1 opacity-60">Hz</span>
+                </p>
               </div>
             </div>
           </div>
+
+          {/* Notas sonando + intervalos */}
+          {(soundingVoices.length > 0 || soundingIntervals.length > 0) && (
+            <div className="flex items-center gap-3 flex-wrap mt-2 pt-2 text-xs"
+              style={{ borderTop: `1px solid ${T.rule}` }}>
+              <span className="text-[9px] tracking-[0.2em] uppercase" style={{ color: T.muted }}>Sonando</span>
+              {soundingVoices.map((v, i) => (
+                <span key={i} className="inline-flex items-baseline gap-1.5 px-2 py-0.5"
+                  style={{ backgroundColor: T.paper, border: `1px solid ${T.rule}`, borderRadius: '2px' }}>
+                  <span style={{ color: T.muted, fontSize: '9px' }}>{v.label}</span>
+                  <span className="font-display italic" style={{ color: T.ink }}>{v.note}</span>
+                  {Math.abs(v.cents) >= 0.5 && (
+                    <span className="num-tabular text-[10px]" style={{ color: Math.abs(v.cents) < IN_TUNE_THRESHOLD ? T.limeDeep : T.warn }}>
+                      {v.cents >= 0 ? '+' : ''}{v.cents.toFixed(0)}¢
+                    </span>
+                  )}
+                </span>
+              ))}
+              {soundingIntervals.length > 0 && (
+                <span style={{ color: T.muted }}>·</span>
+              )}
+              {soundingIntervals.map((si, i) => (
+                <span key={i} className="inline-flex items-baseline gap-1.5"
+                  style={{ color: T.inkSoft }}>
+                  <span style={{ color: T.muted, fontSize: '9px' }}>{si.from}→{si.to}</span>
+                  <span className="font-display italic text-sm" style={{ color: T.ink }}>{si.interval.name}</span>
+                  {si.interval.ratio && (
+                    <span className="text-[10px] num-tabular" style={{ color: T.muted }}>{si.interval.ratio}</span>
+                  )}
+                  {Math.abs(si.interval.cents) >= 0.5 && (
+                    <span className="num-tabular text-[10px]" style={{ color: si.interval.kind === 'justa' ? T.limeDeep : T.muted }}>
+                      {si.interval.cents >= 0 ? '+' : ''}{si.interval.cents.toFixed(0)}¢ {si.interval.kind}
+                    </span>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-      </div>    </div>
+      </div>
+    </div>
   );
 }
 
@@ -1708,8 +1695,8 @@ function TunerStrip({ cents, label, sublabel, hint, accent, pitchHistoryRef, pit
 
   return (
     <div style={{
-      backgroundColor: T.paper, border: `1px solid ${T.rule}`, borderRadius: '1rem',
-      padding: '12px 14px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+      backgroundColor: T.cream, border: `1px solid ${T.rule}`, borderRadius: '2px',
+      padding: '8px 10px',
     }}>
       {/* Encabezado: label + cents */}
       <div className="flex items-baseline justify-between mb-1">
@@ -1728,19 +1715,19 @@ function TunerStrip({ cents, label, sublabel, hint, accent, pitchHistoryRef, pit
 
       {/* Historial de pitch (siempre visible) */}
       <div className="relative my-1" style={{
-        height: '118px', backgroundColor: T.paper, border: `1px solid ${T.rule}`, borderRadius: '0.75rem',
+        height: '64px', backgroundColor: T.paper, border: `1px solid ${T.rule}`, borderRadius: '1px',
       }}>
         <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
       </div>
 
       {/* Strip indicador */}
       <div className="relative" style={{
-        height: '28px',
+        height: '22px',
         background: `linear-gradient(to right,
           ${T.warn}33 0%, ${T.warn}22 30%,
           ${T.limeDeep}44 42%, ${T.limeDeep}66 50%, ${T.limeDeep}44 58%,
           ${T.warn}22 70%, ${T.warn}33 100%)`,
-        border: `1px solid ${T.rule}`, borderRadius: '0.9rem',
+        border: `1px solid ${T.rule}`, borderRadius: '2px',
       }}>
         <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', backgroundColor: T.muted, opacity: 0.4 }} />
         {valid && (
@@ -1775,8 +1762,8 @@ function JustTunerDisplay({ result, micEnabled, freq, droneMidi, pitchHistoryRef
   const noteApprox = midiToNoteName(harmMidi);
   return (
     <TunerStrip cents={result.cents}
-      label={`${result.n}° armónico · ${noteApprox.name}${noteApprox.octave}`}
-      sublabel={`desviación contra el armónico exacto del drone · ${result.cents >= 0 ? '+' : ''}${result.cents.toFixed(1)}¢`}
+      label={`${result.n}° armónico · ${noteApprox.name}`}
+      sublabel={`equivale al ${result.n}° armónico (cualquier octava)`}
       accent={T.limeDeep}
       pitchHistoryRef={pitchHistoryRef}
       pitchHistoryIdxRef={pitchHistoryIdxRef}
@@ -1816,12 +1803,12 @@ function ETTunerDisplay({ result, micEnabled, freq, pitchHistoryRef, pitchHistor
 // ════════════════════════════════════════════════════════════════════
 
 function NoteStaff({ notes, activeId, onNoteClick, kind }) {
-  const stepHeight = 6;
-  const noteSpacing = kind === 'harmonic' ? 44 : 38;
-  const leftPad = 74;
+  const stepHeight = 5;
+  const noteSpacing = kind === 'harmonic' ? 36 : 32;
+  const leftPad = 60;
   const rightPad = 16;
-  const topPad = 46;
-  const bottomPad = kind === 'harmonic' ? 46 : 34;
+  const topPad = 36;
+  const bottomPad = kind === 'harmonic' ? 38 : 26;
 
   // Computar posiciones con octavación aplicada
   const positions = notes.map(n => {
@@ -1843,7 +1830,7 @@ function NoteStaff({ notes, activeId, onNoteClick, kind }) {
   const bassLines = [-10, -8, -6, -4, -2];
 
   return (
-    <div className="staff-scroll" style={{ overflowX: 'auto', backgroundColor: T.paper, border: `1px solid ${T.rule}`, borderRadius: '1rem', padding: '10px' }}>
+    <div className="staff-scroll" style={{ overflowX: 'auto', backgroundColor: T.paper, border: `1px solid ${T.rule}`, borderRadius: '2px', padding: '4px' }}>
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}
         style={{ display: 'block' }}>
 
@@ -1863,14 +1850,14 @@ function NoteStaff({ notes, activeId, onNoteClick, kind }) {
           stroke={T.ink} strokeWidth="1" opacity="0.6" />
 
         {/* Clave de sol — centrada en G4 (pos 4). Usar SVG path estilizado. */}
-        <g transform={`translate(${leftPad - 46}, ${yForPos(4) - 28})`}>
-          <text x="0" y="28" fontSize="46" fill={T.ink}
+        <g transform={`translate(${leftPad - 38}, ${yForPos(4) - 18})`}>
+          <text x="0" y="20" fontSize="38" fill={T.ink}
             style={{ fontFamily: '"Bravura", "Noto Music", serif' }}>𝄞</text>
         </g>
 
         {/* Clave de fa — centrada en F3 (pos -4) */}
-        <g transform={`translate(${leftPad - 44}, ${yForPos(-4) - 18})`}>
-          <text x="0" y="22" fontSize="36" fill={T.ink}
+        <g transform={`translate(${leftPad - 36}, ${yForPos(-4) - 14})`}>
+          <text x="0" y="18" fontSize="30" fill={T.ink}
             style={{ fontFamily: '"Bravura", "Noto Music", serif' }}>𝄢</text>
         </g>
 
@@ -1923,14 +1910,14 @@ function NoteStaff({ notes, activeId, onNoteClick, kind }) {
               )}
 
               {/* Label superior (1° arm. o nombre de nota) */}
-              <text x={x} y={24} fontSize={kind === 'harmonic' ? "9" : "10"} fill={isActive ? T.limeDeep : T.ink}
+              <text x={x} y={20} fontSize="10" fill={isActive ? T.limeDeep : T.ink}
                 textAnchor="middle" fontFamily="DM Sans" fontWeight={isActive ? 600 : 500}>
                 {p.label}
               </text>
 
               {/* En armónicos: aprox nota debajo del label superior */}
               {kind === 'harmonic' && p.noteApprox && (
-                <text x={x} y={36} fontSize="9" fill={isActive ? T.limeDeep : T.muted}
+                <text x={x} y={32} fontSize="9" fill={isActive ? T.limeDeep : T.muted}
                   textAnchor="middle" fontFamily="DM Sans">
                   {p.noteApprox}
                 </text>
