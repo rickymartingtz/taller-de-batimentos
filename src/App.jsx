@@ -901,7 +901,7 @@ export default function TallerBatimientos() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-zinc-100 px-3 py-4 text-zinc-950 sm:px-6 sm:py-6 md:px-10 md:py-10" style={{ backgroundColor: T.cream, color: T.ink, paddingBottom: 'clamp(220px, 28vh, 320px)' }}>
+    <div className="min-h-screen overflow-x-hidden bg-zinc-100 px-3 py-4 text-zinc-950 sm:px-6 sm:py-6 md:px-10 md:py-10" style={{ backgroundColor: T.cream, color: T.ink, paddingBottom: 'calc(12.5vh + 28px)' }}>
       <style>{`
         .font-display { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-style: normal !important; }
         .font-body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -920,12 +920,12 @@ export default function TallerBatimientos() {
         .key-btn { padding: 0; cursor: pointer; }
         .key-btn:hover { filter: brightness(0.97); }
         .tuner-line { position: absolute; top: 0; bottom: 0; width: 2px; transition: left 0.08s linear, background-color 0.15s linear; }
-        body { padding-bottom: clamp(220px, 28vh, 320px); }
+        body { padding-bottom: calc(12.5vh + 28px); }
         .workbench-grid { display: grid; grid-template-columns: 1fr; }
-        @media (min-width: 1280px) { .workbench-grid { grid-template-columns: minmax(136px, 12.5vw) minmax(0, 1fr); } }
-        .interval-panel { align-self: start; }
-        @media (min-width: 1280px) { .interval-panel { max-width: 200px; } }
-        .scrollable-intervals { max-height: calc(100vh - 188px); overflow-y: auto; padding-right: 2px; }
+        @media (min-width: 1280px) { .workbench-grid { grid-template-columns: clamp(128px, 12.5vw, 180px) minmax(0, 1fr); } }
+        .interval-panel { align-self: start; max-height: calc(87.5vh - 36px); overflow: hidden; }
+        @media (min-width: 1280px) { .interval-panel { width: clamp(128px, 12.5vw, 180px); max-width: clamp(128px, 12.5vw, 180px); } }
+        .scrollable-intervals { max-height: calc(87.5vh - 72px); overflow-y: auto; padding-right: 2px; }
         .scrollable-intervals::-webkit-scrollbar { width: 5px; }
         .scrollable-intervals::-webkit-scrollbar-track { background: transparent; }
         .scrollable-intervals::-webkit-scrollbar-thumb { background: ${T.rule}; border-radius: 3px; }
@@ -975,22 +975,22 @@ export default function TallerBatimientos() {
         <section className="workbench-grid gap-4 sm:gap-5 items-start">
 
           {/* Intervalos (scroll propio) */}
-          <div className="interval-panel rounded-2xl border border-zinc-200 bg-white p-2.5 shadow-sm lg:sticky lg:top-5 sm:p-3">
+          <div className="interval-panel rounded-2xl border border-zinc-200 bg-white p-2 shadow-sm xl:sticky xl:top-5">
             <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Intervalos</p>
-            <div className="scrollable-intervals flex flex-col gap-1.5">
+            <div className="scrollable-intervals flex flex-col gap-1">
               {INTERVALS.map((iv, i) => {
                 const active = i === intervalIdx;
                 return (
                   <button
                     key={iv.id}
                     onClick={() => handleIntervalClick(i)}
-                    className={`block w-full rounded-xl border px-2 py-1.5 text-left text-[11px] font-semibold leading-tight transition ${active ? "border-zinc-950 bg-zinc-950 text-white shadow-sm" : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-500 hover:bg-zinc-100"}`}
+                    className={`block w-full rounded-lg border px-1.5 py-1 text-left text-[10px] font-semibold leading-tight transition ${active ? "border-zinc-950 bg-zinc-950 text-white shadow-sm" : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-500 hover:bg-zinc-100"}`}
                   >
                     <span className="flex items-center justify-between gap-1">
                       <span className="truncate">{iv.name}</span>
                       {active && isPlaying && <span className="play-dot" />}
                     </span>
-                    <span className={`mt-0.5 block text-[9px] tabular-nums ${active ? "text-white/70" : "text-zinc-500"}`}>{iv.ratio}</span>
+                    <span className={`mt-0.5 block text-[8px] tabular-nums ${active ? "text-white/70" : "text-zinc-500"}`}>{iv.ratio}</span>
                   </button>
                 );
               })}
@@ -1360,85 +1360,85 @@ export default function TallerBatimientos() {
         </footer>
       </div>
 
-      {/* BARRA INFERIOR FIJA: visualizador + lecturas + notas sonando */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-2xl">
-        <div className="mx-auto max-w-[1800px] px-3 py-2 sm:px-5">
-          <div className="flex flex-col gap-2 xl:flex-row xl:items-stretch">
-            <div
-              className="relative min-h-[78px] flex-1 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50 shadow-sm"
-              style={{
-                height: 'clamp(78px, 12.5vh, 118px)',
-                boxShadow: isLocked && isPlaying ? 'inset 0 0 0 2px rgb(16 185 129 / 0.55)' : undefined,
-              }}
-            >
-              <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
-              {isLocked && isPlaying && (
-                <div className="absolute right-2 top-2 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
-                  Encaje puro
-                </div>
-              )}
-            </div>
+      {/* BARRA INFERIOR FIJA: visualizador compacto de 1/8 de pantalla */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white/95 shadow-2xl backdrop-blur"
+        style={{ height: '12.5vh', minHeight: '88px', maxHeight: '128px' }}
+      >
+        <div className="mx-auto flex h-full max-w-[1800px] gap-2 px-3 py-2 sm:px-5">
+          <div
+            className="relative h-full min-w-0 flex-1 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 shadow-sm"
+            style={{
+              boxShadow: isLocked && isPlaying ? 'inset 0 0 0 2px rgb(16 185 129 / 0.55)' : undefined,
+            }}
+          >
+            <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+            {isLocked && isPlaying && (
+              <div className="absolute right-2 top-2 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                Encaje puro
+              </div>
+            )}
+          </div>
 
-            <div className="grid grid-cols-2 gap-2 xl:w-[360px]">
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
-                <p className="truncate text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Batimientos</p>
-                <p className={`truncate text-base font-bold tabular-nums sm:text-lg ${isLocked ? "text-emerald-700" : "text-zinc-900"}`}>
-                  {computedBeatRate < 0.05 ? '0.00' : computedBeatRate.toFixed(2)} <span className="text-[10px] text-zinc-500">Hz</span>
-                </p>
-              </div>
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
-                <p className="truncate text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Cents ET</p>
-                <p className="truncate text-base font-bold tabular-nums text-zinc-900 sm:text-lg">
-                  {centsOffset >= 0 ? '+' : ''}{centsOffset.toFixed(1)}
-                </p>
-              </div>
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
-                <p className="truncate text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Δ justa</p>
-                <p className={`truncate text-base font-bold tabular-nums sm:text-lg ${isNearLock ? "text-emerald-700" : "text-zinc-900"}`}>
-                  {distanceToJust >= 0 ? '+' : ''}{distanceToJust.toFixed(1)}
-                </p>
-              </div>
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
-                <p className="truncate text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Variable</p>
-                <p className="truncate text-base font-bold tabular-nums text-zinc-900 sm:text-lg">
-                  {variableFreq.toFixed(1)} <span className="text-[10px] text-zinc-500">Hz</span>
-                </p>
-              </div>
+          <div className="hidden h-full w-[250px] grid-cols-2 gap-1.5 sm:grid xl:w-[320px]">
+            <div className="min-h-0 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">
+              <p className="truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Batimientos</p>
+              <p className={`truncate text-sm font-bold tabular-nums ${isLocked ? "text-emerald-700" : "text-zinc-900"}`}>
+                {computedBeatRate < 0.05 ? '0.00' : computedBeatRate.toFixed(2)} <span className="text-[9px] text-zinc-500">Hz</span>
+              </p>
+            </div>
+            <div className="min-h-0 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">
+              <p className="truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Cents ET</p>
+              <p className="truncate text-sm font-bold tabular-nums text-zinc-900">
+                {centsOffset >= 0 ? '+' : ''}{centsOffset.toFixed(1)}
+              </p>
+            </div>
+            <div className="min-h-0 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">
+              <p className="truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Δ justa</p>
+              <p className={`truncate text-sm font-bold tabular-nums ${isNearLock ? "text-emerald-700" : "text-zinc-900"}`}>
+                {distanceToJust >= 0 ? '+' : ''}{distanceToJust.toFixed(1)}
+              </p>
+            </div>
+            <div className="min-h-0 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">
+              <p className="truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Variable</p>
+              <p className="truncate text-sm font-bold tabular-nums text-zinc-900">
+                {variableFreq.toFixed(1)} <span className="text-[9px] text-zinc-500">Hz</span>
+              </p>
             </div>
           </div>
 
-          {/* Notas sonando + intervalos */}
-          <div className="mt-2 max-h-[68px] overflow-y-auto border-t border-zinc-200 pt-2 text-xs">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Sonando</span>
-              {soundingVoices.length === 0 && (
-                <span className="italic text-zinc-500">Nada activo todavía</span>
-              )}
-              {soundingVoices.map((v, i) => (
-                <span key={i} className="inline-flex items-baseline gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 shadow-sm">
-                  <span className="text-[9px] text-zinc-500">{v.label}</span>
-                  <span className="font-semibold text-zinc-900">{v.note}</span>
-                  <span className={`tabular-nums text-[10px] ${Math.abs(v.cents) < IN_TUNE_THRESHOLD ? "text-emerald-700" : "text-red-700"}`}>
-                    {v.cents >= 0 ? '+' : ''}{v.cents.toFixed(1)}¢
+          <div className="hidden h-full w-[300px] min-w-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 px-2 py-1 xl:flex 2xl:w-[420px]">
+            <p className="mb-1 text-[8px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Sonando / intervalos</p>
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1 text-[10px]">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {soundingVoices.length === 0 && (
+                  <span className="italic text-zinc-500">Nada activo todavía</span>
+                )}
+                {soundingVoices.map((v, i) => (
+                  <span key={i} className="inline-flex items-baseline gap-1 rounded-full border border-zinc-200 bg-white px-2 py-0.5 shadow-sm">
+                    <span className="text-[8px] text-zinc-500">{v.label}</span>
+                    <span className="font-semibold text-zinc-900">{v.note}</span>
+                    <span className={`tabular-nums text-[9px] ${Math.abs(v.cents) < IN_TUNE_THRESHOLD ? "text-emerald-700" : "text-red-700"}`}>
+                      {v.cents >= 0 ? '+' : ''}{v.cents.toFixed(1)}¢
+                    </span>
+                    <span className="tabular-nums text-[9px] text-zinc-500">{v.freq.toFixed(1)} Hz</span>
                   </span>
-                  <span className="tabular-nums text-[10px] text-zinc-500">{v.freq.toFixed(1)} Hz</span>
-                </span>
-              ))}
-              {soundingIntervals.map((si, i) => (
-                <span key={i} className="inline-flex items-baseline gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-zinc-700 shadow-sm">
-                  <span className="text-[9px] text-zinc-500">{si.from}→{si.to}</span>
-                  <span className="font-semibold text-zinc-900">{si.interval.name}</span>
-                  {si.interval.ratio && <span className="tabular-nums text-[10px] text-zinc-500">{si.interval.ratio}</span>}
-                  <span className={`tabular-nums text-[10px] ${si.interval.kind === 'justa' ? "text-emerald-700" : "text-zinc-500"}`}>
-                    {si.interval.cents >= 0 ? '+' : ''}{si.interval.cents.toFixed(1)}¢ {si.interval.kind || ''}
+                ))}
+                {soundingIntervals.map((si, i) => (
+                  <span key={i} className="inline-flex items-baseline gap-1 rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-zinc-700 shadow-sm">
+                    <span className="text-[8px] text-zinc-500">{si.from}→{si.to}</span>
+                    <span className="font-semibold text-zinc-900">{si.interval.name}</span>
+                    {si.interval.ratio && <span className="tabular-nums text-[9px] text-zinc-500">{si.interval.ratio}</span>}
+                    <span className={`tabular-nums text-[9px] ${si.interval.kind === 'justa' ? "text-emerald-700" : "text-zinc-500"}`}>
+                      {si.interval.cents >= 0 ? '+' : ''}{si.interval.cents.toFixed(1)}¢ {si.interval.kind || ''}
+                    </span>
                   </span>
-                </span>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </div>    </div>
   );
 }
 
